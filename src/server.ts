@@ -26,7 +26,7 @@
 
 import "dotenv/config";
 import mongoose from "mongoose";
-import { connectDB } from "./config/db.ts";
+import { connectDB } from "./config/db.js";
 
 async function testConnection(): Promise<void> {
   console.log("[TEST] Starting MongoDB connection test...\n");

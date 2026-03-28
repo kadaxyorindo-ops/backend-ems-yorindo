@@ -20,7 +20,7 @@
  *     point running the server without a database.
  */
 
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 import mongoose from "mongoose";
 
 dotenv.config();
@@ -39,21 +39,24 @@ export async function connectDB(): Promise<void> {
   if (!uri) {
     console.error(
       "[DB] MONGODB_URI is not defined. " +
-      "Make sure your .env file exists and is loaded before connectDB() is called."
+        "Make sure your .env file exists and is loaded before connectDB() is called.",
     );
     process.exit(1);
   }
 
   try {
+    console.log("[DB] Attempting to connect to MongoDB...");
+    console.log(`[DB] URI (masked): ${uri?.replace(/:[^@]+@/, ":****@")}`);
+
     await mongoose.connect(uri, {
       /**
        * serverSelectionTimeoutMS (default: 30000ms)
        * How long Mongoose waits to find an available MongoDB server
        * before throwing a timeout error on the initial connect attempt.
-       * 5 seconds is generous for a local instance — if your local
-       * MongoDB isn't responding in 5 seconds, something is wrong.
+       * Increased to 60s for Atlas to handle TLS handshake and replica set discovery
+       * over less stable networks.
        */
-      serverSelectionTimeoutMS: 5_000,
+      serverSelectionTimeoutMS: 60_000,
 
       /**
        * socketTimeoutMS (default: 0 — no timeout)
@@ -69,24 +72,31 @@ export async function connectDB(): Promise<void> {
        * 10 is a safe default for local development.
        */
       maxPoolSize: 10,
+
+      /**
+       * For MongoDB Atlas: retryWrites helps with
+       * replica set stability and automatic connection retry.
+       * connectTimeoutMS increased for TLS handshake.
+       */
+      retryWrites: true,
+      connectTimeoutMS: 30_000,
     });
 
     console.log(
       `[DB] Connected to MongoDB successfully. ` +
-      `Host: ${mongoose.connection.host} | ` +
-      `Database: ${mongoose.connection.name}`
+        `Host: ${mongoose.connection.host} | ` +
+        `Database: ${mongoose.connection.name}`,
     );
-
   } catch (error) {
     // Log the full error for debugging, then exit.
     // We exit here because the server is useless without a DB connection.
     console.error("[DB] Initial connection to MongoDB failed:", error);
     console.error(
       "[DB] Troubleshooting tips for local MongoDB:\n" +
-      "  1. Check MongoDB is running:  sudo systemctl status mongod\n" +
-      "  2. Start it if stopped:        sudo systemctl start mongod\n" +
-      "  3. Verify MONGODB_URI in .env (e.g. mongodb://127.0.0.1:27017/xyz_ems)\n" +
-      "  4. Check MongoDB logs:         sudo journalctl -u mongod --no-pager | tail -20"
+        "  1. Check MongoDB is running:  sudo systemctl status mongod\n" +
+        "  2. Start it if stopped:        sudo systemctl start mongod\n" +
+        "  3. Verify MONGODB_URI in .env (e.g. mongodb://127.0.0.1:27017/xyz_ems)\n" +
+        "  4. Check MongoDB logs:         sudo journalctl -u mongod --no-pager | tail -20",
     );
     process.exit(1);
   }

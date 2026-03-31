@@ -34,11 +34,14 @@
 import { Schema, model, Types } from "mongoose";
 import { STATUS } from "../constants/enums.js";
 import type { EventStatus } from "../constants/enums.js";
-import { safeTrim } from "../helpers/transformers.js";
+import { lowerTrim, safeTrim } from "../helpers/transformers.js";
 import { RegistrationFieldSchema } from "./sub/registration-field.schema.js";
 import type { IRegistrationField } from "./sub/registration-field.schema.js";
 
 export interface IEvent {
+  /** URL-friendly slug for public registration links. */
+  slug: string;
+
   /** Event title displayed in the UI and communications (e.g. "Tech Expo 2025"). */
   title: string;
 
@@ -106,6 +109,12 @@ const EventSchema = new Schema<IEvent>(
       required: true,
       trim: true,
       set: safeTrim,
+    },
+    slug: {
+      type: String,
+      required: true,
+      trim: true,
+      set: lowerTrim,
     },
     description: {
       type: String,
@@ -180,5 +189,8 @@ EventSchema.index({ status: 1, eventDate: -1 });
 
 // Category filtering — used in analytics and event browsing.
 EventSchema.index({ category: 1 });
+
+// Public registration link lookup.
+EventSchema.index({ slug: 1 }, { unique: true });
 
 export const Event = model<IEvent>("Event", EventSchema);

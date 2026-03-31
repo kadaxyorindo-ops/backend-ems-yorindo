@@ -56,8 +56,9 @@ export async function handleCreateEvent(
 ): Promise<void> {
   try {
     const body = res.locals.parsed.body as CreateEventBody;
+    const userId = req.auth!.sub;
 
-    const event = await createEvent(body);
+    const event = await createEvent(body, userId);
 
     sendSuccess(res, 201, "Event created successfully", event);
   } catch (error) {
@@ -72,15 +73,16 @@ export async function handleCreateEvent(
  * once auth middleware is implemented.
  */
 export async function handleUpdateEvent(
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
     const { id } = res.locals.parsed.params as EventParams;
     const body    = res.locals.parsed.body   as UpdateEventBody;
+    const userId = req.auth!.sub;
 
-    const event = await updateEvent(id, body);
+    const event = await updateEvent(id, body, userId);
 
     if (!event) {
       sendError(res, 404, "Event not found");
@@ -100,15 +102,15 @@ export async function handleUpdateEvent(
  * surveys, and audit logs remain intact and resolvable.
  */
 export async function handleDeleteEvent(
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
     const { id } = res.locals.parsed.params as EventParams;
-    const body   = res.locals.parsed.body   as DeleteEventBody;
+    const userId   = req.auth!.sub;
 
-    const event = await deleteEvent(id, body);
+    const event = await deleteEvent(id, userId);
 
     if (!event) {
       sendError(res, 404, "Event not found");

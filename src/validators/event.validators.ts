@@ -94,7 +94,6 @@ export const createEventBodySchema = z.object({
   registrationForm: z.object({
     fields: z.array(RegistrationFieldSchema).default([]),
   }).default({ fields: [] }),
-  createdBy:   objectIdSchema,
   // status is intentionally excluded — always forced to "draft" in the service
 });
 
@@ -121,15 +120,12 @@ export const updateEventBodySchema = z.object({
   registrationForm: z.object({
     fields: z.array(RegistrationFieldSchema),
   }).optional(),
-  updatedBy: objectIdSchema,
 }).strict();
 
 export type UpdateEventBody = z.infer<typeof updateEventBodySchema>;
 
 // Body for DELETE /api/v1/events/:id
 // Only requires who is performing the deletion — the service sets status to "cancelled".
-export const deleteEventBodySchema = z.object({
-  updatedBy: objectIdSchema,
-});
+export const deleteEventBodySchema = z.object({}).strict();
 
 export type DeleteEventBody = z.infer<typeof deleteEventBodySchema>;

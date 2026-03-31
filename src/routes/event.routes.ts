@@ -25,13 +25,41 @@ import {
   handleUpdateEvent,
   handleDeleteEvent,
 } from "../controllers/event.controller";
+import { requireAuth, requireRole } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-router.get("/", validate(getAllEventsQuerySchema, "query"), handleGetAllEvents);
-router.post("/", validate(createEventBodySchema, "body"), handleCreateEvent);
-router.patch("/:id", validate(eventParamsSchema,      "params"), validate(updateEventBodySchema,  "body"),  handleUpdateEvent);
-router.delete("/:id", validate(eventParamsSchema, "params"), validate(deleteEventBodySchema, "body"), handleDeleteEvent);
+// GET — all authenticated staff can view
+router.get("/",
+  requireAuth,
+  validate(getAllEventsQuerySchema, "query"),
+  handleGetAllEvents,
+);
+
+// POST — only admin and above can create
+router.post("/",
+  requireAuth,
+  requireRole("super_admin", "admin"),
+  validate(createEventBodySchema, "body"),
+  handleCreateEvent,
+);
+
+// PATCH — only admin and above can update
+router.patch("/:id",
+  requireAuth,
+  requireRole("super_admin", "admin"),
+  validate(eventParamsSchema, "params"),
+  validate(updateEventBodySchema, "body"),
+  handleUpdateEvent,
+);
+
+// DELETE — only admin and above can cancel
+router.delete("/:id",
+  requireAuth,
+  requireRole("super_admin", "admin"),
+  validate(eventParamsSchema, "params"),
+  handleDeleteEvent,  // no body validation needed anymore
+);
 
 
 export default router;

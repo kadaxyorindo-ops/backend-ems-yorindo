@@ -8,12 +8,17 @@
  *  - All DB errors propagate naturally; the controller catches them via next().
  */
 
-import { Event } from '../models';
-import type { IEvent } from '../models/schemas/event.schema';
-import type { GetAllEventsQuery, CreateEventBody, UpdateEventBody, DeleteEventBody } from '../validators/event.validators';
+import { Event } from "../models";
+import type { IEvent } from "../models/schemas/event.schema";
+import type {
+  GetAllEventsQuery,
+  CreateEventBody,
+  UpdateEventBody,
+  DeleteEventBody,
+} from "../validators/event.validators";
 import type { PaginatedData } from "../types/api/index";
-import { Types } from 'mongoose';
-import { slugifyUnique } from '../utils/slugify';
+import { Types } from "mongoose";
+import { slugifyUnique } from "../utils/slugify";
 
 // The shape of an event document returned from .lean() —
 // plain JS object (no Mongoose methods), with _id as string after JSON serialization.
@@ -37,9 +42,9 @@ export async function getAllEvents(
   // Typed as Record<string, unknown> because mongoose v9 no longer exports
   // a public FilterQuery type, and .find() accepts any plain object at runtime.
   const filter: Record<string, unknown> = {};
-  if (status)   filter.status   = status;
+  if (status) filter.status = status;
   if (category) filter.category = { $regex: category, $options: "i" }; // case-insensitive
-  if (search) filter.title = { $regex: search,   $options: "i" }
+  if (search) filter.title = { $regex: search, $options: "i" };
 
   const sortDirection = sortOrder === "asc" ? 1 : -1;
   const skip = (page - 1) * limit;
@@ -50,7 +55,7 @@ export async function getAllEvents(
       .sort({ [sortBy]: sortDirection })
       .skip(skip)
       .limit(limit)
-      .lean<LeanEvent[]>(),    // .lean() returns plain JS objects (faster, no Mongoose overhead)
+      .lean<LeanEvent[]>(), // .lean() returns plain JS objects (faster, no Mongoose overhead)
     Event.countDocuments(filter),
   ]);
 
@@ -66,27 +71,30 @@ export async function getAllEvents(
 }
 
 // Create Event
-export async function createEvent(body: CreateEventBody): Promise<IEvent & { _id: unknown }> {
+export async function createEvent(
+  body: CreateEventBody,
+  userId: string,
+): Promise<IEvent & { _id: unknown }> {
   // Use `new Event().save()` instead of `Event.create()` — Mongoose v9's strict
   // TypeScript overloads on create() fail to resolve when the input is complex,
   // causing the return type to collapse to `never`. The two-step approach avoids
   // that ambiguity and gives TypeScript a concrete HydratedDocument to work with.
   const doc = await new Event({
-    title:            body.title,
+    title: body.title,
     slug: slugifyUnique(body.title),
-    description:      body.description,
-    category:         body.category,
-    eventDate:        body.eventDate,
-    location:         body.location,
-    maxCapacity:      body.maxCapacity,
-    status:           "draft",             // always forced — never from client input
+    description: body.description,
+    category: body.category,
+    eventDate: body.eventDate,
+    location: body.location,
+    maxCapacity: body.maxCapacity,
+    status: "draft", // always forced — never from client input
     registrationForm: {
-      version:     1,                      // starts at 1 on creation
-      fields:      body.registrationForm.fields,
-      publishedAt: null,                   // null until the event is published
+      version: 1, // starts at 1 on creation
+      fields: body.registrationForm.fields,
+      publishedAt: null, // null until the event is published
     },
-    surveyId:  null,
-    createdBy: new Types.ObjectId(body.createdBy),
+    surveyId: null,
+    createdBy: new Types.ObjectId(userId),
     updatedBy: null,
   }).save();
 
@@ -97,8 +105,9 @@ export async function createEvent(body: CreateEventBody): Promise<IEvent & { _id
 export async function updateEvent(
   id: string,
   body: UpdateEventBody,
+  userId: string,
 ): Promise<(IEvent & { _id: unknown }) | null> {
-  const { updatedBy, registrationForm, ...rest } = body;
+  const { registrationForm, ...rest } = body;
 
   // Build the update payload explicitly.
   // Spreading `rest` handles all scalar fields (title, description, etc.).
@@ -106,9 +115,9 @@ export async function updateEvent(
   // overwriting sibling fields like version and publishedAt.
   const update: Record<string, unknown> = {
     ...rest,
-    updatedBy: new Types.ObjectId(updatedBy),
+    updatedBy: new Types.ObjectId(userId),
   };
-  
+
   // Regenerate slug if title is being updated
   if (rest.title !== undefined) {
     update.slug = slugifyUnique(rest.title);
@@ -122,7 +131,7 @@ export async function updateEvent(
     id,
     { $set: update },
     {
-      new: true,        // return the updated document, not the original
+      new: true, // return the updated document, not the original
       runValidators: true, // run Mongoose schema validators on the new values
     },
   ).lean<IEvent & { _id: unknown }>();
@@ -134,14 +143,14 @@ export async function updateEvent(
 // Delete Event (soft delete — sets status to "cancelled")
 export async function deleteEvent(
   id: string,
-  body: DeleteEventBody,
+  userId: string,
 ): Promise<(IEvent & { _id: unknown }) | null> {
   const doc = await Event.findByIdAndUpdate(
     id,
     {
       $set: {
-        status:    "cancelled",                       // soft delete via lifecycle status
-        updatedBy: new Types.ObjectId(body.updatedBy),
+        status: "cancelled", // soft delete via lifecycle status
+        updatedBy: new Types.ObjectId(userId),
       },
     },
     { new: true },

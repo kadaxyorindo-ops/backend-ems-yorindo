@@ -29,7 +29,7 @@ type LeanEvent = IEvent & { _id: unknown; createdAt: Date; updatedAt: Date };
 export async function getAllEvents(
   query: GetAllEventsQuery,
 ): Promise<PaginatedData<LeanEvent>> {
-  const { page, limit, status, category, sortBy, sortOrder } = query;
+  const { page, limit, status, category, search, sortBy, sortOrder } = query;
 
   // Build the filter object — only add fields that were actually provided.
   // An empty object means "return everything" (no filter applied).
@@ -38,6 +38,7 @@ export async function getAllEvents(
   const filter: Record<string, unknown> = {};
   if (status)   filter.status   = status;
   if (category) filter.category = { $regex: category, $options: "i" }; // case-insensitive
+  if (search) filter.title = { $regex: search,   $options: "i" }
 
   const sortDirection = sortOrder === "asc" ? 1 : -1;
   const skip = (page - 1) * limit;

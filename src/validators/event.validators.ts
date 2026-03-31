@@ -35,6 +35,7 @@ export const getAllEventsQuerySchema = z.object({
   limit:     z.coerce.number().int().min(1).max(100).default(10),
   status:    z.enum(STATUS.EVENT).optional(),
   category:  z.string().trim().min(1).optional(),
+  search: z.string().trim().min(1).optional(),
   sortBy:    z.enum(["eventDate", "createdAt", "title"]).default("eventDate"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });

@@ -13,6 +13,7 @@ import type { IEvent } from '../models/schemas/event.schema';
 import type { GetAllEventsQuery, CreateEventBody, UpdateEventBody, DeleteEventBody } from '../validators/event.validators';
 import type { PaginatedData } from "../types/api/index";
 import { Types } from 'mongoose';
+import { slugifyUnique, slugify } from '../utils/slugify';
 
 // The shape of an event document returned from .lean() —
 // plain JS object (no Mongoose methods), with _id as string after JSON serialization.
@@ -72,6 +73,7 @@ export async function createEvent(body: CreateEventBody): Promise<IEvent & { _id
   // that ambiguity and gives TypeScript a concrete HydratedDocument to work with.
   const doc = await new Event({
     title:            body.title,
+    slug: slugifyUnique(body.title),
     description:      body.description,
     category:         body.category,
     eventDate:        body.eventDate,
@@ -106,6 +108,11 @@ export async function updateEvent(
     ...rest,
     updatedBy: new Types.ObjectId(updatedBy),
   };
+  
+  // Regenerate slug if title is being updated
+  if (rest.title !== undefined) {
+    update.slug = slugifyUnique(rest.title);
+  }
 
   if (registrationForm !== undefined) {
     update["registrationForm.fields"] = registrationForm.fields;

@@ -12,6 +12,8 @@ import { Event } from '../models';
 import type { IEvent } from '../models/schemas/event.schema';
 import type { GetAllEventsQuery } from '../validators/event.validators';
 import type { PaginatedData } from "../types/api/index";
+import { Types } from 'mongoose';
+import type { CreateEventBody } from '../validators/event.validators';
 
 // The shape of an event document returned from .lean() —
 // plain JS object (no Mongoose methods), with _id as string after JSON serialization.
@@ -59,4 +61,30 @@ export async function getAllEvents(
       totalPages: Math.ceil(total / limit),
     },
   };
+}
+
+export async function createEvent(body: CreateEventBody): Promise<IEvent & { _id: unknown }> {
+  // Use `new Event().save()` instead of `Event.create()` — Mongoose v9's strict
+  // TypeScript overloads on create() fail to resolve when the input is complex,
+  // causing the return type to collapse to `never`. The two-step approach avoids
+  // that ambiguity and gives TypeScript a concrete HydratedDocument to work with.
+  const doc = await new Event({
+    title:            body.title,
+    description:      body.description,
+    category:         body.category,
+    eventDate:        body.eventDate,
+    location:         body.location,
+    maxCapacity:      body.maxCapacity,
+    status:           "draft",             // always forced — never from client input
+    registrationForm: {
+      version:     1,                      // starts at 1 on creation
+      fields:      body.registrationForm.fields,
+      publishedAt: null,                   // null until the event is published
+    },
+    surveyId:  null,
+    createdBy: new Types.ObjectId(body.createdBy),
+    updatedBy: null,
+  }).save();
+
+  return doc.toObject();
 }

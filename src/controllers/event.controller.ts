@@ -13,8 +13,9 @@
 
 import type { Request, Response, NextFunction } from "express";
 import type { GetAllEventsQuery } from "../validators/event.validators";
-import { getAllEvents } from "../services/event.service";
+import { getAllEvents, createEvent } from "../services/event.service";
 import { sendSuccess } from "../utils/Response";
+import type { CreateEventBody } from "../validators/event.validators";
 
 /**
  * GET /api/v1/events
@@ -40,4 +41,26 @@ export async function handleGetAllEvents(
         // Pass any DB or runtime error to the global error handler (error.middleware.ts)
         next(error);
     }
+}
+
+/**
+ * POST /api/v1/events
+ * Creates a new event. Status is always forced to "draft" by the service.
+ * createdBy comes from the request body for now; will move to req.user._id
+ * once auth middleware is implemented.
+ */
+export async function handleCreateEvent(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const body = res.locals.parsed.body as CreateEventBody;
+
+    const event = await createEvent(body);
+
+    sendSuccess(res, 201, "Event created successfully", event);
+  } catch (error) {
+    next(error);
+  }
 }

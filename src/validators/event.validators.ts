@@ -35,3 +35,60 @@ export const getAllEventsQuerySchema = z.object({
 
 // TypeScript type inferred directly from the schema — single source of truth.
 export type GetAllEventsQuery = z.infer<typeof getAllEventsQuerySchema>;
+
+// Reusable sub-schema in the mongoose model
+const OptionSchema = z.object({
+  value:     z.string().trim().min(1),
+  label:     z.string().trim().min(1),
+  isDefault: z.boolean().default(false),
+});
+
+const ValidationRuleSchema = z.object({
+  required:  z.boolean().default(false),
+  minLength: z.number().int().min(0).optional(),
+  maxLength: z.number().int().min(0).optional(),
+  minValue:  z.number().optional(),
+  maxValue:  z.number().optional(),
+  regex:     z.string().optional(),
+});
+
+const VisibilityRuleSchema = z.object({
+  UserRole:         z.array(z.enum(STATUS.USER_ROLE)).optional(),
+  eventCategories:  z.array(z.string().trim().min(1)).optional(),
+  dependsOnFieldId: z.string().trim().optional(),
+  operator:         z.enum(["equals", "not_equals", "in", "not_in", "exists"]).optional(),
+  value:            z.unknown().optional(),
+});
+
+const RegistrationFieldSchema = z.object({
+  fieldId:     z.string().trim().min(1),
+  key:         z.string().trim().min(1),
+  label:       z.string().trim().min(1),
+  type:        z.enum(STATUS.FIELD_TYPE),
+  order:       z.number().int().min(1),
+  isFixed:     z.boolean().default(false),
+  placeholder: z.string().trim().optional(),
+  helpText:    z.string().trim().optional(),
+  options:     z.array(OptionSchema).optional(),
+  validation:  ValidationRuleSchema.default({ required: false }),
+  visibility:  z.array(VisibilityRuleSchema).optional(),
+  isActive:    z.boolean().default(true),
+});
+
+// --- new: create event body schema ---
+
+export const createEventBodySchema = z.object({
+  title:       z.string().trim().min(1, "Title is required"),
+  description: z.string().trim().min(1).nullable().default(null),
+  category:    z.string().trim().min(1).nullable().default(null),
+  eventDate:   z.coerce.date(),           // accepts ISO string "2025-12-01T09:00:00Z"
+  location:    z.string().trim().min(1).nullable().default(null),
+  maxCapacity: z.number().int().min(1).nullable().default(null),
+  registrationForm: z.object({
+    fields: z.array(RegistrationFieldSchema).default([]),
+  }).default({ fields: [] }),
+  createdBy:   z.string().trim().regex(/^[a-f\d]{24}$/i, "Must be a valid MongoDB ObjectId"),
+  // status is intentionally excluded — always forced to "draft" in the service
+});
+
+export type CreateEventBody = z.infer<typeof createEventBodySchema>;

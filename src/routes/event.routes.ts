@@ -12,11 +12,12 @@
 
 import { Router } from "express";
 import { validate } from "../middlewares/validate.middleware";
-import { getAllEventsQuerySchema } from "../validators/event.validators";
-import { handleGetAllEvents } from "../controllers/event.controller";
+import { getAllEventsQuerySchema, createEventBodySchema } from "../validators/event.validators";
+import { handleGetAllEvents, handleCreateEvent } from "../controllers/event.controller";
 
 const router = Router();
 
 router.get("/", validate(getAllEventsQuerySchema, "query"), handleGetAllEvents);
+router.post("/",  validate(createEventBodySchema, "body"),   handleCreateEvent);
 
 export default router;

@@ -34,7 +34,7 @@ authRouter.post(
   async (req, res) => {
     try {
       const result = await requestLoginOtp({
-        email: req.body.email,
+        email: res.locals.parsed.body.email,
         ipAddress: req.ip ?? null,
       });
 
@@ -61,8 +61,8 @@ authRouter.post(
   async (req, res) => {
     try {
       const result = await verifyLoginOtp({
-        email: req.body.email,
-        code: req.body.code,
+        email: res.locals.parsed.body.email,
+        code: res.locals.parsed.body.code,
         ipAddress: req.ip ?? null,
         userAgent: req.get("user-agent") ?? null,
       });

@@ -12,7 +12,7 @@
 
 import type { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
-import { sendError } from "../utils/Response";
+import { sendError } from "../utils/apiResponse";
 
 export const errorHandler: ErrorRequestHandler = (
     err: unknown,
@@ -22,13 +22,13 @@ export const errorHandler: ErrorRequestHandler = (
 ): void => {
     // Zod validation errors -> 422 with structured field errors
     if (err instanceof ZodError) {
-        sendError(res, 422, "Validation failed", err.flatten().fieldErrors);
+        sendError(res, 422, "Validation failed", err.issues);
         return;
     }
 
     // Any other error -> 500
     if (err instanceof Error) {
-        console.error("[ERROR", err.message, err.stack);
+        console.error("[ERROR]", err.message, err.stack);
         sendError(res, 500, "An unexpected error occured");
         return;
     }

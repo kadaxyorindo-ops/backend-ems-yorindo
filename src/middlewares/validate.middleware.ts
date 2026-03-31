@@ -15,7 +15,7 @@
 
 import type { Request, Response, NextFunction } from "express";
 import type { ZodType } from "zod";
-import { sendError } from "../utils/Response";
+import { sendError } from "../utils/apiResponse";
 
 type RequestLocation = "body" | "query" | "params";
 

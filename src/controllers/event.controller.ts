@@ -14,7 +14,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { GetAllEventsQuery } from "../validators/event.validators";
 import { getAllEvents, createEvent, updateEvent, deleteEvent } from "../services/event.service";
-import { sendSuccess, sendError } from "../utils/Response";
+import { sendSuccess, sendError } from "../utils/apiResponse";
 import type { CreateEventBody, EventParams, UpdateEventBody, DeleteEventBody } from "../validators/event.validators";
 
 /**

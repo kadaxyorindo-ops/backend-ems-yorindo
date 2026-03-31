@@ -118,7 +118,6 @@ const EventSchema = new Schema<IEvent>(
       type: String,
       required: true,
       trim: true,
-      unique: true,
     },
     description: {
       type: String,

@@ -13,7 +13,7 @@ import type { IEvent } from '../models/schemas/event.schema';
 import type { GetAllEventsQuery, CreateEventBody, UpdateEventBody, DeleteEventBody } from '../validators/event.validators';
 import type { PaginatedData } from "../types/api/index";
 import { Types } from 'mongoose';
-import { slugifyUnique, slugify } from '../utils/slugify';
+import { slugifyUnique } from '../utils/slugify';
 
 // The shape of an event document returned from .lean() —
 // plain JS object (no Mongoose methods), with _id as string after JSON serialization.

@@ -81,8 +81,9 @@ app.get("/brevo-health", async (_req, res) => {
 
 // --- API routes ---
 app.use("/api/v1", apiRouter);
+app.use("/api/v1/auth", authRouter);
 
-app.use("/api/auth", authRouter);
+// -- Global Errorhandler
 app.use(errorHandler);
 
 export default app;

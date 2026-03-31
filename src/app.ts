@@ -4,6 +4,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import { verifyBrevoSMTP } from "./config/brevo.ts";
+import apiRouter from "./routes/index.ts";
+import { errorHandler } from "./middlewares/error.middleware.ts";
 
 const app = express();
 
@@ -73,5 +75,11 @@ app.get("/brevo-health", async (_req, res) => {
     },
   });
 });
+
+// --- API routes ---
+app.use("/api/v1", apiRouter);
+
+// --- Global error handler
+app.use(errorHandler);
 
 export default app;

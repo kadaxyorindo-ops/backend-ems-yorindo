@@ -5,7 +5,7 @@ import {
   requestOtpLimiter,
   verifyOtpLimiter,
 } from "../middlewares/rateLimiter.middleware.ts";
-import { validateBody } from "../middlewares/validate.middleware.ts";
+import { validate } from "../middlewares/validate.middleware.ts";
 import { sendError, sendSuccess } from "../utils/apiResponse.ts";
 import {
   getAuthenticatedUser,
@@ -30,7 +30,7 @@ const verifyOtpSchema = z.object({
 authRouter.post(
   "/request-otp",
   requestOtpLimiter,
-  validateBody(requestOtpSchema),
+  validate(requestOtpSchema),
   async (req, res) => {
     try {
       const result = await requestLoginOtp({
@@ -57,7 +57,7 @@ authRouter.post(
 authRouter.post(
   "/verify-otp",
   verifyOtpLimiter,
-  validateBody(verifyOtpSchema),
+  validate(verifyOtpSchema),
   async (req, res) => {
     try {
       const result = await verifyLoginOtp({

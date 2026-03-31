@@ -16,18 +16,22 @@ import {
   getAllEventsQuerySchema,
   createEventBodySchema,
   updateEventBodySchema,
+  deleteEventBodySchema,
   eventParamsSchema,
 } from "../validators/event.validators";
 import {
   handleGetAllEvents,
   handleCreateEvent,
   handleUpdateEvent,
+  handleDeleteEvent,
 } from "../controllers/event.controller";
 
 const router = Router();
 
 router.get("/", validate(getAllEventsQuerySchema, "query"), handleGetAllEvents);
 router.post("/", validate(createEventBodySchema, "body"), handleCreateEvent);
-router.patch( "/:id", validate(eventParamsSchema,      "params"), validate(updateEventBodySchema,  "body"),  handleUpdateEvent);
+router.patch("/:id", validate(eventParamsSchema,      "params"), validate(updateEventBodySchema,  "body"),  handleUpdateEvent);
+router.delete("/:id", validate(eventParamsSchema, "params"), validate(deleteEventBodySchema, "body"), handleDeleteEvent);
+
 
 export default router;

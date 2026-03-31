@@ -13,9 +13,9 @@
 
 import type { Request, Response, NextFunction } from "express";
 import type { GetAllEventsQuery } from "../validators/event.validators";
-import { getAllEvents, createEvent, updateEvent } from "../services/event.service";
+import { getAllEvents, createEvent, updateEvent, deleteEvent } from "../services/event.service";
 import { sendSuccess, sendError } from "../utils/Response";
-import type { CreateEventBody, EventParams, UpdateEventBody } from "../validators/event.validators";
+import type { CreateEventBody, EventParams, UpdateEventBody, DeleteEventBody } from "../validators/event.validators";
 
 /**
  * GET /api/v1/events
@@ -88,6 +88,34 @@ export async function handleUpdateEvent(
     }
 
     sendSuccess(res, 200, "Event updated successfully", event);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * DELETE /api/v1/events/:id
+ * Soft-deletes an event by setting its status to "cancelled".
+ * The document is preserved in the database — all linked registrations,
+ * surveys, and audit logs remain intact and resolvable.
+ */
+export async function handleDeleteEvent(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = res.locals.parsed.params as EventParams;
+    const body   = res.locals.parsed.body   as DeleteEventBody;
+
+    const event = await deleteEvent(id, body);
+
+    if (!event) {
+      sendError(res, 404, "Event not found");
+      return;
+    }
+
+    sendSuccess(res, 200, "Event cancelled successfully", event);
   } catch (error) {
     next(error);
   }

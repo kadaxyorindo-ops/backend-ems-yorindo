@@ -124,3 +124,11 @@ export const updateEventBodySchema = z.object({
 }).strict();
 
 export type UpdateEventBody = z.infer<typeof updateEventBodySchema>;
+
+// Body for DELETE /api/v1/events/:id
+// Only requires who is performing the deletion — the service sets status to "cancelled".
+export const deleteEventBodySchema = z.object({
+  updatedBy: objectIdSchema,
+});
+
+export type DeleteEventBody = z.infer<typeof deleteEventBodySchema>;

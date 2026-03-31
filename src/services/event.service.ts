@@ -10,11 +10,9 @@
 
 import { Event } from '../models';
 import type { IEvent } from '../models/schemas/event.schema';
-import type { GetAllEventsQuery } from '../validators/event.validators';
+import type { GetAllEventsQuery, CreateEventBody, UpdateEventBody, DeleteEventBody } from '../validators/event.validators';
 import type { PaginatedData } from "../types/api/index";
 import { Types } from 'mongoose';
-import type { CreateEventBody } from '../validators/event.validators';
-import type { UpdateEventBody, EventParams } from '../validators/event.validators';
 
 // The shape of an event document returned from .lean() —
 // plain JS object (no Mongoose methods), with _id as string after JSON serialization.
@@ -119,6 +117,26 @@ export async function updateEvent(
       new: true,        // return the updated document, not the original
       runValidators: true, // run Mongoose schema validators on the new values
     },
+  ).lean<IEvent & { _id: unknown }>();
+
+  // Returns null if no document with that _id exists — controller handles the 404
+  return doc;
+}
+
+// Delete Event (soft delete — sets status to "cancelled")
+export async function deleteEvent(
+  id: string,
+  body: DeleteEventBody,
+): Promise<(IEvent & { _id: unknown }) | null> {
+  const doc = await Event.findByIdAndUpdate(
+    id,
+    {
+      $set: {
+        status:    "cancelled",                       // soft delete via lifecycle status
+        updatedBy: new Types.ObjectId(body.updatedBy),
+      },
+    },
+    { new: true },
   ).lean<IEvent & { _id: unknown }>();
 
   // Returns null if no document with that _id exists — controller handles the 404

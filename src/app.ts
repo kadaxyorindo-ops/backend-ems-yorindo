@@ -4,9 +4,15 @@ import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import { verifyBrevoSMTP } from "./config/brevo.ts";
+import authRouter from "./routes/auth.routes.ts";
+import {
+  errorHandler,
+  notFoundHandler,
+} from "./middlewares/error.middleware.ts";
 
 const app = express();
 
+app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors());
 app.use(morgan("dev"));
@@ -70,8 +76,14 @@ app.get("/brevo-health", async (_req, res) => {
       port: result.port,
       secure: result.secure,
       user: result.user,
+      fromEmail: result.fromEmail,
+      fromName: result.fromName,
     },
   });
 });
+
+app.use("/api/auth", authRouter);
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;

@@ -83,6 +83,13 @@ export interface IOtp {
    * Null if the IP could not be determined.
    */
   ipAddress: string | null;
+
+  /**
+   * Added by Mongoose timestamps.
+   * Used by the auth service to enforce resend cooldowns.
+   */
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const OtpSchema = new Schema<IOtp>(

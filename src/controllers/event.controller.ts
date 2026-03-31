@@ -13,9 +13,9 @@
 
 import type { Request, Response, NextFunction } from "express";
 import type { GetAllEventsQuery } from "../validators/event.validators";
-import { getAllEvents, createEvent } from "../services/event.service";
-import { sendSuccess } from "../utils/Response";
-import type { CreateEventBody } from "../validators/event.validators";
+import { getAllEvents, createEvent, updateEvent } from "../services/event.service";
+import { sendSuccess, sendError } from "../utils/Response";
+import type { CreateEventBody, EventParams, UpdateEventBody } from "../validators/event.validators";
 
 /**
  * GET /api/v1/events
@@ -60,6 +60,34 @@ export async function handleCreateEvent(
     const event = await createEvent(body);
 
     sendSuccess(res, 201, "Event created successfully", event);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /api/v1/events/:id
+ * Partially updates an event. Only provided fields are changed.
+ * updatedBy comes from the request body for now; will move to req.user._id
+ * once auth middleware is implemented.
+ */
+export async function handleUpdateEvent(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = res.locals.parsed.params as EventParams;
+    const body    = res.locals.parsed.body   as UpdateEventBody;
+
+    const event = await updateEvent(id, body);
+
+    if (!event) {
+      sendError(res, 404, "Event not found");
+      return;
+    }
+
+    sendSuccess(res, 200, "Event updated successfully", event);
   } catch (error) {
     next(error);
   }

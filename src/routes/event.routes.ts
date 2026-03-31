@@ -12,12 +12,22 @@
 
 import { Router } from "express";
 import { validate } from "../middlewares/validate.middleware";
-import { getAllEventsQuerySchema, createEventBodySchema } from "../validators/event.validators";
-import { handleGetAllEvents, handleCreateEvent } from "../controllers/event.controller";
+import {
+  getAllEventsQuerySchema,
+  createEventBodySchema,
+  updateEventBodySchema,
+  eventParamsSchema,
+} from "../validators/event.validators";
+import {
+  handleGetAllEvents,
+  handleCreateEvent,
+  handleUpdateEvent,
+} from "../controllers/event.controller";
 
 const router = Router();
 
 router.get("/", validate(getAllEventsQuerySchema, "query"), handleGetAllEvents);
-router.post("/",  validate(createEventBodySchema, "body"),   handleCreateEvent);
+router.post("/", validate(createEventBodySchema, "body"), handleCreateEvent);
+router.patch( "/:id", validate(eventParamsSchema,      "params"), validate(updateEventBodySchema,  "body"),  handleUpdateEvent);
 
 export default router;

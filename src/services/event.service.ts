@@ -14,6 +14,7 @@ import type { GetAllEventsQuery } from '../validators/event.validators';
 import type { PaginatedData } from "../types/api/index";
 import { Types } from 'mongoose';
 import type { CreateEventBody } from '../validators/event.validators';
+import type { UpdateEventBody, EventParams } from '../validators/event.validators';
 
 // The shape of an event document returned from .lean() —
 // plain JS object (no Mongoose methods), with _id as string after JSON serialization.
@@ -26,6 +27,7 @@ type LeanEvent = IEvent & { _id: unknown; createdAt: Date; updatedAt: Date };
  * @returns    Paginated wrapper containing the event list and metadata.
  */
 
+// Get all event
 export async function getAllEvents(
   query: GetAllEventsQuery,
 ): Promise<PaginatedData<LeanEvent>> {
@@ -63,6 +65,7 @@ export async function getAllEvents(
   };
 }
 
+// Create Event
 export async function createEvent(body: CreateEventBody): Promise<IEvent & { _id: unknown }> {
   // Use `new Event().save()` instead of `Event.create()` — Mongoose v9's strict
   // TypeScript overloads on create() fail to resolve when the input is complex,
@@ -87,4 +90,37 @@ export async function createEvent(body: CreateEventBody): Promise<IEvent & { _id
   }).save();
 
   return doc.toObject();
+}
+
+// Update Event
+export async function updateEvent(
+  id: string,
+  body: UpdateEventBody,
+): Promise<(IEvent & { _id: unknown }) | null> {
+  const { updatedBy, registrationForm, ...rest } = body;
+
+  // Build the update payload explicitly.
+  // Spreading `rest` handles all scalar fields (title, description, etc.).
+  // registrationForm.fields is nested, so it needs dot-notation to avoid
+  // overwriting sibling fields like version and publishedAt.
+  const update: Record<string, unknown> = {
+    ...rest,
+    updatedBy: new Types.ObjectId(updatedBy),
+  };
+
+  if (registrationForm !== undefined) {
+    update["registrationForm.fields"] = registrationForm.fields;
+  }
+
+  const doc = await Event.findByIdAndUpdate(
+    id,
+    { $set: update },
+    {
+      new: true,        // return the updated document, not the original
+      runValidators: true, // run Mongoose schema validators on the new values
+    },
+  ).lean<IEvent & { _id: unknown }>();
+
+  // Returns null if no document with that _id exists — controller handles the 404
+  return doc;
 }

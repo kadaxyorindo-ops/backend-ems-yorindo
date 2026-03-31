@@ -13,6 +13,12 @@
 import { z } from "zod";
 import { STATUS } from "../models/constants/enums.ts";
 
+// Reusable ObjectId validator — used for :id params and reference fields
+export const objectIdSchema = z
+  .string()
+  .trim()
+  .regex(/^[a-f\d]{24}$/i, "Must be a valid MongoDB ObjectId");
+
 /**
  * Query parameters accepted by GET /api/v1/events.
  *
@@ -87,8 +93,34 @@ export const createEventBodySchema = z.object({
   registrationForm: z.object({
     fields: z.array(RegistrationFieldSchema).default([]),
   }).default({ fields: [] }),
-  createdBy:   z.string().trim().regex(/^[a-f\d]{24}$/i, "Must be a valid MongoDB ObjectId"),
+  createdBy:   objectIdSchema,
   // status is intentionally excluded — always forced to "draft" in the service
 });
 
 export type CreateEventBody = z.infer<typeof createEventBodySchema>;
+
+// --- URL params for routes that target a single event ---
+export const eventParamsSchema = z.object({
+  id: objectIdSchema,
+});
+
+export type EventParams = z.infer<typeof eventParamsSchema>;
+
+// All the same fields as createEventBodySchema, all optional (PATCH semantics).
+// createdBy excluded — immutable after creation.
+// status excluded — system-controlled via its own endpoint.
+// updatedBy required — who is making this change.
+export const updateEventBodySchema = z.object({
+  title:       z.string().trim().min(1, "Title is required").optional(),
+  description: z.string().trim().min(1).nullable().optional(),
+  category:    z.string().trim().min(1).nullable().optional(),
+  eventDate:   z.coerce.date().optional(),
+  location:    z.string().trim().min(1).nullable().optional(),
+  maxCapacity: z.number().int().min(1).nullable().optional(),
+  registrationForm: z.object({
+    fields: z.array(RegistrationFieldSchema),
+  }).optional(),
+  updatedBy: objectIdSchema,
+}).strict();
+
+export type UpdateEventBody = z.infer<typeof updateEventBodySchema>;

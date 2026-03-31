@@ -59,7 +59,22 @@ export const STATUS = {
    * exhibitor → attending as a brand/company 
 
    */
-  USER_ROLE: ["super_admin", "admin", "participant", "exhibitor"] as const,
+  USER_ROLE: [
+    "super_admin",
+    "admin",
+    "staff",
+    "scanner",
+    "participant",
+    "exhibitor",
+  ] as const,
+
+  /**
+   * Roles allowed to access the internal EMS dashboard.
+   * Kept separate from USER_ROLE because participant/exhibitor are valid
+   * record-keeping values in other collections, but must never authenticate
+   * into the staff dashboard.
+   */
+  SYSTEM_ROLE: ["super_admin", "admin", "staff", "scanner"] as const,
 
   /**
    * Input field types supported in custom registration forms.
@@ -178,6 +193,9 @@ export type RegistrationStatus = typeof STATUS.REGISTRATION[number];
 
 /** "super_admin" | "admin" | "participant" | "exhibitor" */
 export type UserRole = typeof STATUS.USER_ROLE[number];
+
+/** "super_admin" | "admin" | "staff" | "scanner" */
+export type SystemRole = typeof STATUS.SYSTEM_ROLE[number];
 
 /** "text" | "email" | "phone" | "number" | "textarea" | "radio" | "checkbox" | "select" | "date" | "file" */
 export type FieldType = typeof STATUS.FIELD_TYPE[number];

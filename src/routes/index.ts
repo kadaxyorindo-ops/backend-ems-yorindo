@@ -11,11 +11,15 @@
 import { Router } from "express";
 import eventRouter from "./event.routes.ts";
 import formBuilderRoutes from "./formBuilder.routes.ts";
+import {
+  getAuthenticatedUser,
+  requestLoginOtp,
+  verifyLoginOtp,
+} from "../services/auth.service.ts";
 
 const apiRouter = Router();
 
 apiRouter.use("/events", eventRouter);
-
 apiRouter.use("/form-builder", formBuilderRoutes);
 
 // Future routers go here:

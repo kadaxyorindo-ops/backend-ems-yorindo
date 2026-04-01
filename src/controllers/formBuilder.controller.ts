@@ -20,17 +20,17 @@ export async function getFormBuilderHandler(
     const { eventId } = req.params;
 
     if (!eventId || !isValidObjectId(eventId)) {
-      return sendError(res, "Invalid eventId", 400);
+      return sendError(res, 400, "Invalid eventId");
     }
 
     const data = await getFormBuilderByEvent(eventId);
     if (!data) {
-      return sendError(res, "Event not found", 404);
+      return sendError(res, 404, "Event not found");
     }
 
-    return sendSuccess(res, data, "form builder fetched");
+    return sendSuccess(res, 200, "form builder fetched", data);
   } catch (error) {
-    return sendError(res, "failed to fetch form builder", 500, error);
+    return sendError(res, 500, "failed to fetch form builder", error);
   }
 }
 
@@ -43,19 +43,19 @@ export async function upsertFormBuilderHandler(
     const payload = req.body as FormBuilderUpsertRequest;
 
     if (!eventId || !isValidObjectId(eventId)) {
-      return sendError(res, "Invalid eventId", 400);
+      return sendError(res, 400, "Invalid eventId");
     }
 
     const data = await upsertFormBuilder(eventId, payload);
     if (!data) {
-      return sendError(res, "Event not found", 404);
+      return sendError(res, 404, "Event not found");
     }
 
-    return sendSuccess(res, data, "form builder saved");
+    return sendSuccess(res, 200, "form builder saved", data);
   } catch (error) {
     if (error instanceof FormBuilderValidationError) {
-      return sendError(res, error.message, error.statusCode);
+      return sendError(res, error.statusCode, error.message);
     }
-    return sendError(res, "failed to save form builder", 500, error);
+    return sendError(res, 500, "failed to save form builder", error);
   }
 }

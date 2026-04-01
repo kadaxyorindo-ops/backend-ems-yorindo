@@ -5,7 +5,7 @@ import Industry from '../models/Industry.ts';
 import JobTitle from '../models/JobTitle.ts';
 import Participant from '../models/Participant.ts';
 import SurveyResponse from '../models/SurveyResponse.ts';
-import { Event } from "../models/index.ts";
+import { Event, Registration } from "../models/index.ts";
 
 interface SurveyAnswerInput {
   questionId: string;
@@ -92,7 +92,6 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       { new: true, upsert: true }
     );
 
-  
     const participant = await Participant.findOneAndUpdate(
       { companyEmail: email_perusahaan }, 
       {
@@ -111,25 +110,97 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
     );
 
 
-    const event = await Event.findById(event_id).select("surveyId").lean();
+    const event = await Event.findById(event_id).select("registrationForm").lean();
     if (!event) {
       return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
     }
 
-    const answers = normalizeSurveyAnswers(survei_result);
+    const form = event.registrationForm;
+    const fields = form?.fields ?? [];
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, message: "Form registrasi belum tersedia" });
+    }
 
-    if (event.surveyId && answers.length > 0) {
-      const existing = await SurveyResponse.findOne({
-        surveyId: event.surveyId,
+    const fixedValues: Record<string, unknown> = {
+      full_name: nama_lengkap,
+      company_name: nama_company,
+      company_location: lokasi_perusahaan,
+      industry: jenis_industri,
+      job_title: jabatan,
+      company_email: email_perusahaan,
+      personal_email: email_pribadi,
+      phone: no_hp,
+    };
+
+    const answers = fields.reduce((acc, field) => {
+      if (!field.isFixed) return acc;
+      const value = fixedValues[field.key];
+
+      if (value !== undefined && value !== null && value !== "") {
+        acc.push({
+          fieldId: field.fieldId,
+          key: field.key,
+          label: field.label,
+          type: field.type,
+          value,
+        });
+      }
+
+      return acc;
+    }, [] as Array<{ fieldId: string; key: string; label: string; type: string; value: unknown }>);
+
+    const existingRegistration = await Registration.findOne({
+      eventId: event_id,
+      participantId: participant._id,
+    }).lean();
+
+    if (existingRegistration) {
+      return res.status(409).json({ success: false, message: "Peserta sudah terdaftar di event ini" });
+    }
+
+    const registration = await Registration.create({
+      eventId: event_id,
+      participantId: participant._id,
+      participantType: "participant",
+      approval: {
+        approvedBy: null,
+        approvedAt: null,
+        rejectedBy: null,
+        rejectedAt: null,
+        rejectionReason: null,
+      },
+      formSnapshot: {
+        version: form?.version ?? 1,
+        fields: fields.map((field) => ({
+          fieldId: field.fieldId,
+          key: field.key,
+          label: field.label,
+          type: field.type,
+          order: field.order,
+          isFixed: field.isFixed,
+          options: field.options,
+        })),
+      },
+      answers,
+      companySnapshot: { companyId: company._id, name: company.name },
+      industrySnapshot: { refId: industry._id, name: industry.name },
+      jobTitleSnapshot: { refId: jobTitle._id, name: jobTitle.name },
+      citySnapshot: { refId: city._id, name: city.name },
+    });
+
+    const customAnswers = normalizeSurveyAnswers(survei_result);
+    if (customAnswers.length > 0) {
+      const existingSurvey = await SurveyResponse.findOne({
+        eventId: event_id,
         participantId: participant._id,
       });
 
-      if (!existing) {
+      if (!existingSurvey) {
         const survey = new SurveyResponse({
           eventId: event_id,
-          surveyId: event.surveyId,
+          surveyId: null,
           participantId: participant._id,
-          answers
+          answers: customAnswers,
         });
         await survey.save();
       }
@@ -140,6 +211,7 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       message: "Proses Registrasi Berhasil Disimpan ke Semua Database!",
       data: {
         participant_id: participant._id,
+        registration_id: registration._id,
       }
     });
 

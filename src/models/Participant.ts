@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from 'mongoose';
+﻿import mongoose, { Schema, Document } from 'mongoose';
 
 const ParticipantSchema = new Schema({
   fullName: { type: String, required: true },

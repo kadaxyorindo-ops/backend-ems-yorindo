@@ -26,6 +26,7 @@ import {
   handleDeleteEvent,
 } from "../controllers/event.controller";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware";
+import registrationRouter from "./registration.routes.js";
 
 const router = Router();
 
@@ -61,5 +62,7 @@ router.delete("/:id",
   handleDeleteEvent,  // no body validation needed anymore
 );
 
+// Nested router — handles all /events/:eventId/registrations/* endpoints.
+router.use("/:eventId/registrations", registrationRouter);
 
 export default router;

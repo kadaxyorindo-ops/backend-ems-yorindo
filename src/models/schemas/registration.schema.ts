@@ -238,4 +238,8 @@ RegistrationSchema.index({ "citySnapshot.refId": 1 });
 // share the same QR code (enforced both here and by ticket generation logic).
 RegistrationSchema.index({ "ticket.qrCode": 1 }, { unique: true, sparse: true });
 
+// Organization name search — supports regex search across registrations without
+// joining to the Participant collection. Added for the participant management list.
+RegistrationSchema.index({ "companySnapshot.name": 1 });
+
 export const Registration = model<IRegistration>("Registration", RegistrationSchema);

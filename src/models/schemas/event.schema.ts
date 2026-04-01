@@ -45,6 +45,13 @@ export interface IEvent {
   /** Event title displayed in the UI and communications (e.g. "Tech Expo 2025"). */
   title: string;
 
+  /**
+   * URL-friendly identifier generated from the title.
+   * Format: "tech-expo-2025-a3f2" (slug + 4-char random hex suffix for uniqueness).
+   * Used for human-readable URLs and event lookups.
+   */
+  slug: string;
+
   /** Optional long-form description of the event. */
   description: string | null;
 
@@ -114,7 +121,6 @@ const EventSchema = new Schema<IEvent>(
       type: String,
       required: true,
       trim: true,
-      set: lowerTrim,
     },
     description: {
       type: String,
@@ -179,7 +185,7 @@ const EventSchema = new Schema<IEvent>(
   {
     timestamps: true,
     collection: "events",
-  }
+  },
 );
 
 // --- Indexes ---
@@ -189,8 +195,5 @@ EventSchema.index({ status: 1, eventDate: -1 });
 
 // Category filtering — used in analytics and event browsing.
 EventSchema.index({ category: 1 });
-
-// Public registration link lookup.
-EventSchema.index({ slug: 1 }, { unique: true });
 
 export const Event = model<IEvent>("Event", EventSchema);

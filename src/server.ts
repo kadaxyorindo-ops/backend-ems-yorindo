@@ -3,8 +3,9 @@ import { networkInterfaces } from "node:os";
 import app from "./app.ts";
 import { connectDB, registerDBListeners } from "./config/db.ts";
 import { verifyBrevoSMTP } from "./config/brevo.ts";
+import { env, isUsingDefaultJwtSecret } from "./config/env.ts";
 
-const port = Number(process.env.PORT ?? 5000);
+const port = env.port;
 
 function getNetworkUrls(portNumber: number): string[] {
   const nets = networkInterfaces();
@@ -46,7 +47,7 @@ async function checkBrevoOnStartup(): Promise<void> {
 
   if (result.ok) {
     console.log(
-      `[BREVO] SMTP verified successfully. Host: ${result.host} | Port: ${result.port} | User: ${result.user}`,
+      `[BREVO] SMTP verified successfully. Host: ${result.host} | Port: ${result.port} | User: ${result.user} | From: ${result.fromName} <${result.fromEmail}>`,
     );
     return;
   }
@@ -58,6 +59,18 @@ async function checkBrevoOnStartup(): Promise<void> {
 
 async function bootstrap(): Promise<void> {
   try {
+    if (isUsingDefaultJwtSecret) {
+      console.warn(
+        "[AUTH] JWT_SECRET tidak ditemukan. Menggunakan secret development fallback. Ganti sebelum dipakai di production.",
+      );
+    }
+
+    if (env.mailFromEmail.endsWith("@smtp-brevo.com")) {
+      console.warn(
+        `[BREVO] Sender aktif masih memakai alamat login SMTP (${env.mailFromEmail}). Ini sering lolos SMTP verify tetapi gagal deliver ke inbox. Pakai sender terverifikasi seperti domain bisnis Anda melalui SMTP_FROM atau MAIL_FROM_EMAIL.`,
+      );
+    }
+
     // Connect to MongoDB
     await connectDB();
 

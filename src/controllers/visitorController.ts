@@ -1,10 +1,56 @@
-import type { Request, Response } from 'express';
+﻿import type { Request, Response } from 'express';
 import City from '../models/City.ts';
 import Company from '../models/Company.ts';
 import Industry from '../models/Industry.ts';
 import JobTitle from '../models/JobTitle.ts';
 import Participant from '../models/Participant.ts';
 import SurveyResponse from '../models/SurveyResponse.ts';
+import { Event } from "../models/index.ts";
+
+interface SurveyAnswerInput {
+  questionId: string;
+  label: string;
+  type: string;
+  value: unknown;
+}
+
+function buildQuestionId(label: string, index: number): string {
+  const slug = label
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return slug ? `q_${slug}` : `q_${index + 1}`;
+}
+
+function normalizeSurveyAnswers(input: unknown): SurveyAnswerInput[] {
+  if (!input) return [];
+
+  if (Array.isArray(input)) {
+    return input as SurveyAnswerInput[];
+  }
+
+  if (typeof input === "object") {
+    return Object.entries(input as Record<string, unknown>).map(
+      ([label, value], index) => {
+        let type = "text";
+
+        if (Array.isArray(value)) type = "checkbox";
+        else if (typeof value === "number") type = "number";
+
+        return {
+          questionId: buildQuestionId(label, index),
+          label,
+          type,
+          value,
+        };
+      },
+    );
+  }
+
+  return [];
+}
 
 export const submitRegistration = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -65,13 +111,28 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
     );
 
 
-    if (survei_result && Object.keys(survei_result).length > 0) {
-      const survey = new SurveyResponse({
-        eventId: event_id,
+    const event = await Event.findById(event_id).select("surveyId").lean();
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
+    }
+
+    const answers = normalizeSurveyAnswers(survei_result);
+
+    if (event.surveyId && answers.length > 0) {
+      const existing = await SurveyResponse.findOne({
+        surveyId: event.surveyId,
         participantId: participant._id,
-        answers: survei_result
       });
-      await survey.save();
+
+      if (!existing) {
+        const survey = new SurveyResponse({
+          eventId: event_id,
+          surveyId: event.surveyId,
+          participantId: participant._id,
+          answers
+        });
+        await survey.save();
+      }
     }
 
     return res.status(201).json({

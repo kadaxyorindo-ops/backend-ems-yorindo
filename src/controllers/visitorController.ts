@@ -111,27 +111,29 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
     );
 
 
-    const event = await Event.findById(event_id).select("surveyId").lean();
+    const event = await Event.findById(event_id).lean();
     if (!event) {
       return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
     }
 
     const answers = normalizeSurveyAnswers(survei_result);
 
-    if (event.surveyId && answers.length > 0) {
-      const existing = await SurveyResponse.findOne({
-        surveyId: event.surveyId,
+    if (answers.length > 0) {
+      const existingSurvey = await SurveyResponse.findOne({
+        eventId: event_id,
         participantId: participant._id,
       });
 
-      if (!existing) {
+      if (!existingSurvey) {
         const survey = new SurveyResponse({
           eventId: event_id,
-          surveyId: event.surveyId,
+          surveyId: event.surveyId || null, 
           participantId: participant._id,
-          answers
+          answers: answers
         });
+        
         await survey.save();
+        console.log("Survey Response berhasil disimpan ke MongoDB!");
       }
     }
 

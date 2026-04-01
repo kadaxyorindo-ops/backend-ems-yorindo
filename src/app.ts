@@ -4,6 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import { verifyBrevoSMTP } from "./config/brevo.ts";
+import visitorRoutes from './routes/visitorRoutes.ts';
 
 const app = express();
 
@@ -11,6 +12,7 @@ app.use(helmet());
 app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
+app.use('/api/visitors', visitorRoutes);
 
 /**
  * Application Health Check

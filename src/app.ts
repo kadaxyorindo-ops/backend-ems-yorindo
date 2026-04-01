@@ -5,6 +5,7 @@ import morgan from "morgan";
 import mongoose from "mongoose";
 import { verifyBrevoSMTP } from "./config/brevo.ts";
 import authRouter from "./routes/auth.routes.ts";
+import communicationRouter from "./routes/communication.routes.ts";
 import {
   errorHandler,
   notFoundHandler,
@@ -83,6 +84,7 @@ app.get("/brevo-health", async (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/communications", communicationRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 

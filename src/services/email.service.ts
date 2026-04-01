@@ -100,3 +100,59 @@ export async function sendLoginOtpEmail(params: {
     throw new Error("SMTP did not accept the message for delivery.");
   }
 }
+
+export async function sendCampaignEmail(params: {
+  recipients: Array<{ email: string; name: string }>;
+  subject: string;
+  html: string;
+  text: string;
+}) {
+  const transporter = createBrevoTransporter();
+  const uniqueRecipients = Array.from(
+    new Map(params.recipients.map((recipient) => [recipient.email, recipient])).values(),
+  );
+  const failures: Array<{ email: string; reason: string }> = [];
+  let successCount = 0;
+
+  for (const recipient of uniqueRecipients) {
+    try {
+      const result = await transporter.sendMail({
+        from: `"${env.mailFromName}" <${env.mailFromEmail}>`,
+        to: recipient.email,
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+      });
+
+      if (Array.isArray(result.rejected) && result.rejected.length > 0) {
+        failures.push({
+          email: recipient.email,
+          reason: `SMTP rejected recipient: ${result.rejected.map(String).join(", ")}`,
+        });
+        continue;
+      }
+
+      if (Array.isArray(result.accepted) && result.accepted.length === 0) {
+        failures.push({
+          email: recipient.email,
+          reason: "SMTP did not accept the message for delivery.",
+        });
+        continue;
+      }
+
+      successCount += 1;
+    } catch (error) {
+      failures.push({
+        email: recipient.email,
+        reason:
+          error instanceof Error ? error.message : "Unknown SMTP delivery error.",
+      });
+    }
+  }
+
+  return {
+    successCount,
+    failureCount: failures.length,
+    failures,
+  };
+}

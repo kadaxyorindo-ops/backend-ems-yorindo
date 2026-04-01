@@ -4,7 +4,14 @@ import {
   Event,
   Registration,
 } from "../models/index.ts";
-import { sendCampaignEmail } from "./email.service.ts";
+import { env } from "../config/env.ts";
+import { sendEmailMessage } from "./email.service.ts";
+import { enqueueCommunicationCampaignJob } from "./email-queue.service.ts";
+import {
+  COMMUNICATION_EMAIL_TEMPLATE_IDS,
+  renderCommunicationEmail,
+  type CommunicationEmailTemplateId,
+} from "./communication-template.service.ts";
 
 type RegistrationStatusFilter =
   | "all"
@@ -14,6 +21,22 @@ type RegistrationStatusFilter =
   | "checked_in";
 
 type ParticipantTypeFilter = "all" | "participant" | "exhibitor";
+
+type CampaignDelivery = {
+  successCount: number;
+  failureCount: number;
+  failures: Array<{ email: string; reason: string }>;
+};
+
+type CampaignStatus =
+  | "draft"
+  | "queued"
+  | "processing"
+  | "sent"
+  | "partial"
+  | "failed";
+
+type CampaignHistoryStatusFilter = "all" | CampaignStatus;
 
 export interface CommunicationAudienceFilters {
   eventId?: string;
@@ -67,7 +90,10 @@ export interface CommunicationAudienceResponse {
 
 export interface CreateCommunicationCampaignInput {
   mode: "draft" | "send";
+  draftId?: string | null;
   eventId?: string | null;
+  templateId: CommunicationEmailTemplateId;
+  previewText?: string | null;
   subject: string;
   bodyHtml: string;
   bodyText?: string;
@@ -75,6 +101,98 @@ export interface CreateCommunicationCampaignInput {
   filters?: CommunicationAudienceFilters;
   recipientRegistrationIds: string[];
   createdByUserId: string;
+}
+
+export interface PreviewCommunicationCampaignInput {
+  eventId?: string | null;
+  templateId: CommunicationEmailTemplateId;
+  previewText?: string | null;
+  subject: string;
+  bodyHtml: string;
+  bodyText?: string;
+  sampleRegistrationId?: string | null;
+}
+
+export interface CommunicationCampaignPreview {
+  templateId: CommunicationEmailTemplateId;
+  templateName: string;
+  previewText: string;
+  subject: string;
+  html: string;
+  text: string;
+  from: {
+    name: string;
+    email: string;
+  };
+  sampleRecipient: {
+    name: string;
+    email: string;
+  };
+  event: {
+    id: string | null;
+    title: string | null;
+    eventDate: string | null;
+  };
+}
+
+export interface CommunicationDraftSummary {
+  id: string;
+  status: "draft";
+  subject: string;
+  previewText: string | null;
+  templateId: CommunicationEmailTemplateId;
+  updatedAt: string;
+  recipientCount: number;
+  event: {
+    id: string | null;
+    title: string | null;
+    eventDate: string | null;
+  };
+}
+
+export interface CommunicationDraftDetail extends CommunicationDraftSummary {
+  bodyHtml: string;
+  bodyText: string | null;
+  bodyJson: Record<string, unknown> | null;
+  filters: CommunicationAudienceFilters;
+  recipientRegistrationIds: string[];
+}
+
+export interface CommunicationCampaignHistoryFilters {
+  status?: CampaignHistoryStatusFilter;
+  search?: string;
+}
+
+export interface CommunicationCampaignHistoryItem {
+  id: string;
+  status: CampaignStatus;
+  templateId: CommunicationEmailTemplateId;
+  templateName: string;
+  previewText: string | null;
+  subject: string;
+  recipientCount: number;
+  delivery: CampaignDelivery;
+  createdAt: string;
+  updatedAt: string;
+  sentAt: string | null;
+  event: {
+    id: string | null;
+    title: string | null;
+    eventDate: string | null;
+  };
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+}
+
+export interface CommunicationCampaignHistoryResponse {
+  items: CommunicationCampaignHistoryItem[];
+  summary: {
+    total: number;
+    statusCounts: Record<string, number>;
+  };
 }
 
 function toObjectId(value?: string | null) {
@@ -128,13 +246,235 @@ function dedupeByKey<T>(items: T[], getKey: (item: T) => string) {
 }
 
 function buildStatusCounts(recipients: CommunicationAudienceRecipient[]) {
-  const counts = recipients.reduce<Record<string, number>>((result, recipient) => {
+  return recipients.reduce<Record<string, number>>((result, recipient) => {
     result.all = (result.all ?? 0) + 1;
     result[recipient.status] = (result[recipient.status] ?? 0) + 1;
     return result;
   }, {});
+}
 
-  return counts;
+function getEmptyDelivery(): CampaignDelivery {
+  return {
+    successCount: 0,
+    failureCount: 0,
+    failures: [],
+  };
+}
+
+function buildCampaignStatus(delivery: CampaignDelivery): Exclude<
+  CampaignStatus,
+  "draft" | "queued" | "processing"
+> {
+  if (delivery.successCount > 0 && delivery.failureCount === 0) {
+    return "sent";
+  }
+
+  if (delivery.successCount > 0) {
+    return "partial";
+  }
+
+  return "failed";
+}
+
+function resolveTemplateId(value?: string | null): CommunicationEmailTemplateId {
+  return COMMUNICATION_EMAIL_TEMPLATE_IDS.includes(
+    value as CommunicationEmailTemplateId,
+  )
+    ? (value as CommunicationEmailTemplateId)
+    : "executive_brief";
+}
+
+function getTemplateDisplayName(templateId: string) {
+  switch (resolveTemplateId(templateId)) {
+    case "event_spotlight":
+      return "Event Spotlight";
+    case "minimal_notice":
+      return "Minimal Notice";
+    default:
+      return "Executive Brief";
+  }
+}
+
+function sanitizeDraftFilters(
+  input: Record<string, unknown> | null | undefined,
+): CommunicationAudienceFilters {
+  if (!input) {
+    return {};
+  }
+
+  return {
+    ...(typeof input.eventId === "string" && input.eventId
+      ? { eventId: input.eventId }
+      : {}),
+    ...(typeof input.status === "string" &&
+    ["all", "pending", "approved", "rejected", "checked_in"].includes(input.status)
+      ? { status: input.status as RegistrationStatusFilter }
+      : {}),
+    ...(typeof input.participantType === "string" &&
+    ["all", "participant", "exhibitor"].includes(input.participantType)
+      ? { participantType: input.participantType as ParticipantTypeFilter }
+      : {}),
+    ...(typeof input.companyId === "string" && input.companyId
+      ? { companyId: input.companyId }
+      : {}),
+    ...(typeof input.industryId === "string" && input.industryId
+      ? { industryId: input.industryId }
+      : {}),
+    ...(typeof input.jobTitleId === "string" && input.jobTitleId
+      ? { jobTitleId: input.jobTitleId }
+      : {}),
+    ...(typeof input.cityId === "string" && input.cityId
+      ? { cityId: input.cityId }
+      : {}),
+    ...(typeof input.sourceChannelCode === "string" && input.sourceChannelCode
+      ? { sourceChannelCode: input.sourceChannelCode }
+      : {}),
+    ...(typeof input.search === "string" && input.search.trim()
+      ? { search: input.search.trim() }
+      : {}),
+  };
+}
+
+type PopulatedCommunicationCampaign = {
+  _id: Types.ObjectId;
+  status: CampaignStatus;
+  templateId: string;
+  previewText?: string | null;
+  subject: string;
+  bodyHtml: string;
+  bodyText?: string | null;
+  bodyJson?: Record<string, unknown> | null;
+  filtersSnapshot?: Record<string, unknown>;
+  audience: {
+    recipientCount: number;
+    recipients: Array<{
+      registrationId: Types.ObjectId;
+      participantId: Types.ObjectId;
+      email: string;
+      name: string;
+    }>;
+  };
+  delivery: CampaignDelivery;
+  createdBy: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+  sentAt?: Date | null;
+  eventId:
+    | {
+        _id: Types.ObjectId;
+        title: string;
+        eventDate: Date;
+      }
+    | null
+    | Types.ObjectId;
+};
+
+type PopulatedCommunicationCampaignHistory = Omit<
+  PopulatedCommunicationCampaign,
+  "createdBy"
+> & {
+  createdBy:
+    | {
+        _id: Types.ObjectId;
+        name: string;
+        email: string;
+      }
+    | Types.ObjectId
+    | null;
+};
+
+function serializeCommunicationDraft(
+  campaign: PopulatedCommunicationCampaign,
+): CommunicationDraftDetail {
+  const eventDocument =
+    campaign.eventId &&
+    typeof campaign.eventId === "object" &&
+    !(campaign.eventId instanceof Types.ObjectId) &&
+    "_id" in campaign.eventId
+      ? campaign.eventId
+      : null;
+
+  const event = eventDocument
+    ? {
+        id: eventDocument._id.toString(),
+        title: eventDocument.title,
+        eventDate: eventDocument.eventDate.toISOString(),
+      }
+    : {
+        id: null,
+        title: null,
+        eventDate: null,
+      };
+
+  return {
+    id: campaign._id.toString(),
+    status: "draft",
+    subject: campaign.subject,
+    previewText: campaign.previewText ?? null,
+    templateId: resolveTemplateId(campaign.templateId),
+    updatedAt: campaign.updatedAt.toISOString(),
+    recipientCount: campaign.audience.recipientCount,
+    event,
+    bodyHtml: campaign.bodyHtml,
+    bodyText: campaign.bodyText ?? null,
+    bodyJson: campaign.bodyJson ?? null,
+    filters: sanitizeDraftFilters(campaign.filtersSnapshot),
+    recipientRegistrationIds: campaign.audience.recipients.map((recipient) =>
+      recipient.registrationId.toString(),
+    ),
+  };
+}
+
+function serializeCommunicationCampaignHistory(
+  campaign: PopulatedCommunicationCampaignHistory,
+): CommunicationCampaignHistoryItem {
+  const eventDocument =
+    campaign.eventId &&
+    typeof campaign.eventId === "object" &&
+    !(campaign.eventId instanceof Types.ObjectId) &&
+    "_id" in campaign.eventId
+      ? campaign.eventId
+      : null;
+
+  const createdByDocument =
+    campaign.createdBy &&
+    typeof campaign.createdBy === "object" &&
+    !(campaign.createdBy instanceof Types.ObjectId) &&
+    "_id" in campaign.createdBy
+      ? campaign.createdBy
+      : null;
+
+  return {
+    id: campaign._id.toString(),
+    status: campaign.status,
+    templateId: resolveTemplateId(campaign.templateId),
+    templateName: getTemplateDisplayName(campaign.templateId),
+    previewText: campaign.previewText ?? null,
+    subject: campaign.subject,
+    recipientCount: campaign.audience.recipientCount,
+    delivery: campaign.delivery,
+    createdAt: campaign.createdAt.toISOString(),
+    updatedAt: campaign.updatedAt.toISOString(),
+    sentAt: campaign.sentAt ? campaign.sentAt.toISOString() : null,
+    event: eventDocument
+      ? {
+          id: eventDocument._id.toString(),
+          title: eventDocument.title,
+          eventDate: eventDocument.eventDate.toISOString(),
+        }
+      : {
+          id: null,
+          title: null,
+          eventDate: null,
+        },
+    createdBy: createdByDocument
+      ? {
+          id: createdByDocument._id.toString(),
+          name: createdByDocument.name,
+          email: createdByDocument.email,
+        }
+      : null,
+  };
 }
 
 type PopulatedRegistration = {
@@ -298,6 +638,47 @@ async function loadRegistrationAudience(eventId?: string) {
   return { recipients, registrationLookups };
 }
 
+async function getCampaignRecipients(registrationIds: string[]) {
+  const validRegistrationIds = registrationIds
+    .filter((value) => Types.ObjectId.isValid(value))
+    .map((value) => new Types.ObjectId(value));
+
+  if (validRegistrationIds.length === 0) {
+    return [];
+  }
+
+  const registrations = (await Registration.find({
+    _id: { $in: validRegistrationIds },
+  })
+    .populate("participantId", "fullName personalEmail companyEmail")
+    .populate("eventId", "title eventDate status")
+    .lean()) as unknown as PopulatedRegistration[];
+
+  return registrations
+    .map(toAudienceRecipient)
+    .filter((item): item is CommunicationAudienceRecipient => Boolean(item));
+}
+
+async function loadEventSummary(eventId?: string | null) {
+  const objectId = toObjectId(eventId);
+
+  if (!objectId) {
+    return null;
+  }
+
+  const event = await Event.findById(objectId).select("title eventDate").lean();
+
+  if (!event) {
+    return null;
+  }
+
+  return {
+    id: event._id.toString(),
+    title: event.title,
+    eventDate: event.eventDate.toISOString(),
+  };
+}
+
 export async function getCommunicationAudience(
   filters: CommunicationAudienceFilters,
 ): Promise<CommunicationAudienceResponse> {
@@ -325,6 +706,7 @@ export async function getCommunicationAudience(
   const baseRecipients = filters.eventId
     ? eventRecipients.filter((recipient) => recipient.eventId === filters.eventId)
     : eventRecipients;
+
   const summaryRecipients = baseRecipients.filter((recipient) =>
     matchesAudienceFilters(
       recipient,
@@ -409,25 +791,148 @@ export async function getCommunicationAudience(
   };
 }
 
-async function getCampaignRecipients(registrationIds: string[]) {
-  const validRegistrationIds = registrationIds
-    .filter((value) => Types.ObjectId.isValid(value))
-    .map((value) => new Types.ObjectId(value));
+export async function previewCommunicationCampaign(
+  input: PreviewCommunicationCampaignInput,
+): Promise<CommunicationCampaignPreview> {
+  const sampleRecipient = input.sampleRegistrationId
+    ? (await getCampaignRecipients([input.sampleRegistrationId]))[0] ?? null
+    : null;
 
-  if (validRegistrationIds.length === 0) {
-    return [];
+  const fallbackEvent = await loadEventSummary(input.eventId);
+  const templateId = resolveTemplateId(input.templateId);
+  const rendered = renderCommunicationEmail({
+    templateId,
+    subject: input.subject.trim() || "Tanpa subject",
+    bodyHtml: input.bodyHtml,
+    bodyText: input.bodyText ?? stripHtml(input.bodyHtml),
+    recipientName: sampleRecipient?.fullName ?? "Participant Preview",
+    recipientEmail: sampleRecipient?.email ?? "participant@example.com",
+    eventTitle: sampleRecipient?.eventTitle ?? fallbackEvent?.title ?? null,
+    eventDate: sampleRecipient?.eventDate ?? fallbackEvent?.eventDate ?? null,
+    ...(input.previewText !== undefined ? { previewText: input.previewText } : {}),
+  });
+
+  return {
+    templateId,
+    templateName: rendered.template.name,
+    previewText: rendered.previewText,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    from: {
+      name: env.mailFromName,
+      email: env.mailFromEmail,
+    },
+    sampleRecipient: {
+      name: sampleRecipient?.fullName ?? "Participant Preview",
+      email: sampleRecipient?.email ?? "participant@example.com",
+    },
+    event: {
+      id: sampleRecipient?.eventId ?? fallbackEvent?.id ?? null,
+      title: sampleRecipient?.eventTitle ?? fallbackEvent?.title ?? null,
+      eventDate: sampleRecipient?.eventDate ?? fallbackEvent?.eventDate ?? null,
+    },
+  };
+}
+
+export async function listCommunicationDrafts(createdByUserId: string) {
+  const createdBy = toObjectId(createdByUserId);
+
+  if (!createdBy) {
+    throw new Error("Pengguna draft tidak valid.");
   }
 
-  const registrations = (await Registration.find({
-    _id: { $in: validRegistrationIds },
+  const drafts = (await CommunicationCampaign.find({
+    createdBy,
+    status: "draft",
   })
-    .populate("participantId", "fullName personalEmail companyEmail")
-    .populate("eventId", "title eventDate status")
-    .lean()) as unknown as PopulatedRegistration[];
+    .populate("eventId", "title eventDate")
+    .sort({ updatedAt: -1 })
+    .limit(8)
+    .lean()) as unknown as PopulatedCommunicationCampaign[];
 
-  return registrations
-    .map(toAudienceRecipient)
-    .filter((item): item is CommunicationAudienceRecipient => Boolean(item));
+  return drafts.map(serializeCommunicationDraft);
+}
+
+export async function getCommunicationDraftDetail(
+  createdByUserId: string,
+  draftId: string,
+) {
+  const createdBy = toObjectId(createdByUserId);
+  const draftObjectId = toObjectId(draftId);
+
+  if (!createdBy || !draftObjectId) {
+    throw new Error("Draft yang diminta tidak valid.");
+  }
+
+  const draft = (await CommunicationCampaign.findOne({
+    _id: draftObjectId,
+    createdBy,
+    status: "draft",
+  })
+    .populate("eventId", "title eventDate")
+    .lean()) as unknown as PopulatedCommunicationCampaign | null;
+
+  if (!draft) {
+    throw new Error("Draft tidak ditemukan atau sudah tidak aktif.");
+  }
+
+  return serializeCommunicationDraft(draft);
+}
+
+export async function listCommunicationCampaignHistory(
+  filters: CommunicationCampaignHistoryFilters,
+): Promise<CommunicationCampaignHistoryResponse> {
+  const match =
+    filters.status && filters.status !== "all"
+      ? { status: filters.status }
+      : {};
+
+  const normalizedSearch = normalizeSearchValue(filters.search);
+
+  const campaigns = (await CommunicationCampaign.find(match)
+    .populate("eventId", "title eventDate")
+    .populate("createdBy", "name email")
+    .sort({ updatedAt: -1 })
+    .limit(50)
+    .lean()) as unknown as PopulatedCommunicationCampaignHistory[];
+
+  const items = campaigns
+    .map(serializeCommunicationCampaignHistory)
+    .filter((campaign) => {
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const searchableText = [
+        campaign.subject,
+        campaign.previewText,
+        campaign.event.title,
+        campaign.createdBy?.name,
+        campaign.createdBy?.email,
+        campaign.templateName,
+        campaign.status,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearch);
+    });
+
+  const statusCounts = items.reduce<Record<string, number>>((result, campaign) => {
+    result.all = (result.all ?? 0) + 1;
+    result[campaign.status] = (result[campaign.status] ?? 0) + 1;
+    return result;
+  }, {});
+
+  return {
+    items,
+    summary: {
+      total: items.length,
+      statusCounts,
+    },
+  };
 }
 
 export async function createCommunicationCampaign(
@@ -448,6 +953,8 @@ export async function createCommunicationCampaign(
   const bodyHtml = input.bodyHtml.trim();
   const subject = input.subject.trim();
   const bodyText = input.bodyText?.trim() || stripHtml(bodyHtml);
+  const templateId = resolveTemplateId(input.templateId);
+  const previewText = input.previewText?.trim() || null;
 
   if (input.mode === "send" && !subject) {
     throw new Error("Subject email wajib diisi sebelum broadcast.");
@@ -457,40 +964,27 @@ export async function createCommunicationCampaign(
     throw new Error("Isi email masih kosong.");
   }
 
-  let status: "draft" | "sent" | "partial" | "failed" = "draft";
-  let sentAt: Date | null = null;
-  let delivery = {
-    successCount: 0,
-    failureCount: 0,
-    failures: [] as Array<{ email: string; reason: string }>,
-  };
+  const initialStatus: CampaignStatus = input.mode === "send" ? "queued" : "draft";
+  const draftObjectId = toObjectId(input.draftId);
+  const existingDraft =
+    draftObjectId &&
+    (await CommunicationCampaign.findOne({
+      _id: draftObjectId,
+      createdBy,
+      status: "draft",
+    }));
 
-  if (input.mode === "send") {
-    sentAt = new Date();
-    delivery = await sendCampaignEmail({
-      recipients: recipients.map((recipient) => ({
-        email: recipient.email,
-        name: recipient.fullName,
-      })),
-      subject,
-      html: bodyHtml,
-      text: bodyText,
-    });
-
-    if (delivery.successCount > 0 && delivery.failureCount === 0) {
-      status = "sent";
-    } else if (delivery.successCount > 0) {
-      status = "partial";
-    } else {
-      status = "failed";
-    }
+  if (input.draftId && !existingDraft) {
+    throw new Error("Draft tidak ditemukan atau sudah tidak aktif.");
   }
 
-  const campaign = await CommunicationCampaign.create({
+  const campaignPayload = {
     eventId: toObjectId(input.eventId),
     createdBy,
     sentBy: input.mode === "send" ? createdBy : null,
-    status,
+    status: initialStatus,
+    templateId,
+    previewText,
     subject,
     bodyHtml,
     bodyText: bodyText || null,
@@ -505,22 +999,173 @@ export async function createCommunicationCampaign(
         name: recipient.fullName,
       })),
     },
-    delivery,
-    sentAt,
-  });
+    delivery: getEmptyDelivery(),
+    sentAt: null,
+  };
+
+  const campaign = existingDraft
+    ? await CommunicationCampaign.findByIdAndUpdate(
+        existingDraft._id,
+        {
+          $set: campaignPayload,
+        },
+        { returnDocument: "after" },
+      )
+    : await CommunicationCampaign.create(campaignPayload);
+
+  if (!campaign) {
+    throw new Error("Campaign email gagal disimpan.");
+  }
+
+  if (input.mode === "send") {
+    try {
+      await enqueueCommunicationCampaignJob({
+        campaignId: campaign._id.toString(),
+      });
+    } catch (error) {
+      if (existingDraft) {
+        await CommunicationCampaign.findByIdAndUpdate(campaign._id, {
+          $set: {
+            status: "draft",
+            sentBy: null,
+            sentAt: null,
+            delivery: getEmptyDelivery(),
+          },
+        });
+      } else {
+        await CommunicationCampaign.findByIdAndUpdate(campaign._id, {
+          $set: {
+            status: "failed",
+          },
+        });
+      }
+
+      throw new Error(
+        error instanceof Error
+          ? `RabbitMQ gagal menerima campaign: ${error.message}${
+              existingDraft ? " Draft tetap tersimpan untuk dicoba lagi." : ""
+            }`
+          : "RabbitMQ gagal menerima campaign.",
+      );
+    }
+  }
 
   return {
     id: campaign._id.toString(),
-    status,
+    status: initialStatus,
     recipientCount: recipients.length,
-    delivery,
+    delivery: getEmptyDelivery(),
     message:
       input.mode === "draft"
-        ? "Draft email berhasil disimpan."
-        : status === "sent"
-          ? "Broadcast email berhasil dikirim."
-          : status === "partial"
-            ? "Broadcast email terkirim sebagian. Cek daftar kegagalan."
-            : "Broadcast email gagal dikirim.",
+        ? existingDraft
+          ? "Draft email berhasil diperbarui."
+          : "Draft email berhasil disimpan."
+        : "Broadcast email berhasil masuk ke antrian RabbitMQ. Delivery diproses di background.",
   };
+}
+
+export async function processQueuedCommunicationCampaign(campaignId: string) {
+  const objectId = toObjectId(campaignId);
+
+  if (!objectId) {
+    console.warn(`[QUEUE] Skip invalid campaign id: ${campaignId}`);
+    return;
+  }
+
+  const campaign = await CommunicationCampaign.findOneAndUpdate(
+    {
+      _id: objectId,
+      status: "queued",
+    },
+    {
+      $set: {
+        status: "processing",
+        delivery: getEmptyDelivery(),
+      },
+    },
+    {
+      returnDocument: "after",
+    },
+  );
+
+  if (!campaign) {
+    const existingCampaign = await CommunicationCampaign.findById(objectId)
+      .select("status")
+      .lean();
+
+    if (existingCampaign) {
+      console.log(
+        `[QUEUE] Campaign ${campaignId} skipped because status is already ${existingCampaign.status}.`,
+      );
+    }
+
+    return;
+  }
+
+  const recipients = dedupeByKey(
+    campaign.audience.recipients.map((recipient) => ({
+      email: recipient.email,
+      name: recipient.name,
+      registrationId: recipient.registrationId.toString(),
+      participantId: recipient.participantId.toString(),
+    })),
+    (recipient) => recipient.email.toLowerCase(),
+  );
+
+  if (recipients.length === 0) {
+    await CommunicationCampaign.findByIdAndUpdate(campaign._id, {
+      $set: {
+        status: "failed",
+        sentAt: new Date(),
+      },
+    });
+    return;
+  }
+
+  const event = campaign.eventId
+    ? await Event.findById(campaign.eventId).select("title eventDate").lean()
+    : null;
+
+  const delivery = getEmptyDelivery();
+
+  for (const recipient of recipients) {
+    try {
+      const rendered = renderCommunicationEmail({
+        templateId: resolveTemplateId(campaign.templateId),
+        previewText: campaign.previewText,
+        subject: campaign.subject,
+        bodyHtml: campaign.bodyHtml,
+        bodyText: campaign.bodyText,
+        recipientName: recipient.name,
+        recipientEmail: recipient.email,
+        eventTitle: event?.title ?? null,
+        eventDate: event?.eventDate ?? null,
+      });
+
+      await sendEmailMessage({
+        to: recipient.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+      });
+
+      delivery.successCount += 1;
+    } catch (error) {
+      delivery.failures.push({
+        email: recipient.email,
+        reason:
+          error instanceof Error ? error.message : "Unknown background delivery error.",
+      });
+    }
+  }
+
+  delivery.failureCount = delivery.failures.length;
+
+  await CommunicationCampaign.findByIdAndUpdate(campaign._id, {
+    $set: {
+      status: buildCampaignStatus(delivery),
+      delivery,
+      sentAt: new Date(),
+    },
+  });
 }

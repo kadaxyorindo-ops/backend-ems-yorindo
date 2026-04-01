@@ -4,6 +4,10 @@ import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import { verifyBrevoSMTP } from "./config/brevo.ts";
+import {
+  getEmailQueueHealthSnapshot,
+  verifyEmailQueueConnection,
+} from "./services/email-queue.service.ts";
 import authRouter from "./routes/auth.routes.ts";
 import communicationRouter from "./routes/communication.routes.ts";
 import {
@@ -79,6 +83,42 @@ app.get("/brevo-health", async (_req, res) => {
       user: result.user,
       fromEmail: result.fromEmail,
       fromName: result.fromName,
+    },
+  });
+});
+
+/**
+ * RabbitMQ Health Check
+ * Returns: 200 OK if queue connection is ready, 503 otherwise
+ */
+app.get("/queue-health", async (_req, res) => {
+  const snapshot = getEmailQueueHealthSnapshot();
+  const result = snapshot.connected
+    ? snapshot
+    : await verifyEmailQueueConnection();
+
+  if (!result.ok) {
+    return res.status(503).json({
+      status: "error",
+      provider: "rabbitmq",
+      queue: {
+        url: result.url,
+        name: result.queueName,
+        connected: result.connected,
+        consumerStarted: result.consumerStarted,
+      },
+      message: result.error,
+    });
+  }
+
+  return res.status(200).json({
+    status: "ok",
+    provider: "rabbitmq",
+    queue: {
+      url: result.url,
+      name: result.queueName,
+      connected: result.connected,
+      consumerStarted: result.consumerStarted,
     },
   });
 });

@@ -71,10 +71,7 @@ export async function sendLoginOtpEmail(params: {
   otp: string;
 }) {
   const { subject, html, text } = renderLoginOtpEmail(params.name, params.otp);
-  const transporter = createBrevoTransporter();
-
-  const result = await transporter.sendMail({
-    from: `"${env.mailFromName}" <${env.mailFromEmail}>`,
+  const result = await sendEmailMessage({
     to: params.to,
     subject,
     html,
@@ -89,6 +86,22 @@ export async function sendLoginOtpEmail(params: {
     rejected: result.rejected,
     response: result.response,
   });
+}
+
+export async function sendEmailMessage(params: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}) {
+  const transporter = createBrevoTransporter();
+  const result = await transporter.sendMail({
+    from: `"${env.mailFromName}" <${env.mailFromEmail}>`,
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
+  });
 
   if (Array.isArray(result.rejected) && result.rejected.length > 0) {
     throw new Error(
@@ -99,6 +112,8 @@ export async function sendLoginOtpEmail(params: {
   if (Array.isArray(result.accepted) && result.accepted.length === 0) {
     throw new Error("SMTP did not accept the message for delivery.");
   }
+
+  return result;
 }
 
 export async function sendCampaignEmail(params: {
@@ -107,7 +122,6 @@ export async function sendCampaignEmail(params: {
   html: string;
   text: string;
 }) {
-  const transporter = createBrevoTransporter();
   const uniqueRecipients = Array.from(
     new Map(params.recipients.map((recipient) => [recipient.email, recipient])).values(),
   );
@@ -116,30 +130,12 @@ export async function sendCampaignEmail(params: {
 
   for (const recipient of uniqueRecipients) {
     try {
-      const result = await transporter.sendMail({
-        from: `"${env.mailFromName}" <${env.mailFromEmail}>`,
+      await sendEmailMessage({
         to: recipient.email,
         subject: params.subject,
         html: params.html,
         text: params.text,
       });
-
-      if (Array.isArray(result.rejected) && result.rejected.length > 0) {
-        failures.push({
-          email: recipient.email,
-          reason: `SMTP rejected recipient: ${result.rejected.map(String).join(", ")}`,
-        });
-        continue;
-      }
-
-      if (Array.isArray(result.accepted) && result.accepted.length === 0) {
-        failures.push({
-          email: recipient.email,
-          reason: "SMTP did not accept the message for delivery.",
-        });
-        continue;
-      }
-
       successCount += 1;
     } catch (error) {
       failures.push({

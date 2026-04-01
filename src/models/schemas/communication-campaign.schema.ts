@@ -4,7 +4,9 @@ export interface ICommunicationCampaign {
   eventId: Types.ObjectId | null;
   createdBy: Types.ObjectId;
   sentBy: Types.ObjectId | null;
-  status: "draft" | "sent" | "partial" | "failed";
+  status: "draft" | "queued" | "processing" | "sent" | "partial" | "failed";
+  templateId: string;
+  previewText: string | null;
   subject: string;
   bodyHtml: string;
   bodyText: string | null;
@@ -50,8 +52,17 @@ const CommunicationCampaignSchema = new Schema<ICommunicationCampaign>(
     status: {
       type: String,
       required: true,
-      enum: ["draft", "sent", "partial", "failed"],
+      enum: ["draft", "queued", "processing", "sent", "partial", "failed"],
       default: "draft",
+    },
+    templateId: {
+      type: String,
+      trim: true,
+      default: "executive_brief",
+    },
+    previewText: {
+      type: String,
+      default: null,
     },
     subject: {
       type: String,

@@ -4,52 +4,42 @@ import Company from '../models/Company.ts';
 import Industry from '../models/Industry.ts';
 import JobTitle from '../models/JobTitle.ts';
 import Participant from '../models/Participant.ts';
-import SurveyResponse from '../models/SurveyResponse.ts';
-import { Event } from "../models/index.ts";
+import { Event, Registration } from "../models/index.ts";
 
-interface SurveyAnswerInput {
-  questionId: string;
+interface CustomAnswerInput {
+  questionId?: string;
   label: string;
-  type: string;
+  type?: string;
   value: unknown;
 }
 
-function buildQuestionId(label: string, index: number): string {
-  const slug = label
+function normalizeKey(value: string): string {
+  return value
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-
-  return slug ? `q_${slug}` : `q_${index + 1}`;
+    .replace(/\s+/g, " ");
 }
 
-function normalizeSurveyAnswers(input: unknown): SurveyAnswerInput[] {
-  if (!input) return [];
+function buildCustomValueMap(input: unknown): Map<string, unknown> {
+  const map = new Map<string, unknown>();
+  if (!input) return map;
 
   if (Array.isArray(input)) {
-    return input as SurveyAnswerInput[];
+    for (const item of input as CustomAnswerInput[]) {
+      if (item?.label) {
+        map.set(normalizeKey(item.label), item.value);
+      }
+    }
+    return map;
   }
 
   if (typeof input === "object") {
-    return Object.entries(input as Record<string, unknown>).map(
-      ([label, value], index) => {
-        let type = "text";
-
-        if (Array.isArray(value)) type = "checkbox";
-        else if (typeof value === "number") type = "number";
-
-        return {
-          questionId: buildQuestionId(label, index),
-          label,
-          type,
-          value,
-        };
-      },
-    );
+    for (const [label, value] of Object.entries(input as Record<string, unknown>)) {
+      map.set(normalizeKey(label), value);
+    }
   }
 
-  return [];
+  return map;
 }
 
 export const submitRegistration = async (req: Request, res: Response): Promise<any> => {
@@ -111,35 +101,94 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
     );
 
 
-    const event = await Event.findById(event_id).select("surveyId").lean();
+    const event = await Event.findById(event_id).select("registrationForm").lean();
     if (!event) {
       return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
     }
 
-    const answers = normalizeSurveyAnswers(survei_result);
-
-    if (event.surveyId && answers.length > 0) {
-      const existing = await SurveyResponse.findOne({
-        surveyId: event.surveyId,
-        participantId: participant._id,
-      });
-
-      if (!existing) {
-        const survey = new SurveyResponse({
-          eventId: event_id,
-          surveyId: event.surveyId,
-          participantId: participant._id,
-          answers
-        });
-        await survey.save();
-      }
+    const form = event.registrationForm;
+    const fields = form?.fields ?? [];
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, message: "Form registrasi belum tersedia" });
     }
+
+    const fixedValues: Record<string, unknown> = {
+      full_name: nama_lengkap,
+      company_name: nama_company,
+      company_location: lokasi_perusahaan,
+      industry: jenis_industri,
+      job_title: jabatan,
+      company_email: email_perusahaan,
+      personal_email: email_pribadi,
+      phone: no_hp,
+    };
+
+    const customValueMap = buildCustomValueMap(survei_result);
+
+    const answers = fields.reduce((acc, field) => {
+      const byKey = fixedValues[field.key];
+      const byLabel = customValueMap.get(normalizeKey(field.label));
+      const byLabelKey = customValueMap.get(normalizeKey(field.key));
+      const value = byKey ?? byLabel ?? byLabelKey;
+
+      if (value !== undefined && value !== null && value !== "") {
+        acc.push({
+          fieldId: field.fieldId,
+          key: field.key,
+          label: field.label,
+          type: field.type,
+          value,
+        });
+      }
+
+      return acc;
+    }, [] as Array<{ fieldId: string; key: string; label: string; type: string; value: unknown }>);
+
+    const existingRegistration = await Registration.findOne({
+      eventId: event_id,
+      participantId: participant._id,
+    }).lean();
+
+    if (existingRegistration) {
+      return res.status(409).json({ success: false, message: "Peserta sudah terdaftar di event ini" });
+    }
+
+    const registration = await Registration.create({
+      eventId: event_id,
+      participantId: participant._id,
+      participantType: "participant",
+      approval: {
+        approvedBy: null,
+        approvedAt: null,
+        rejectedBy: null,
+        rejectedAt: null,
+        rejectionReason: null,
+      },
+      formSnapshot: {
+        version: form?.version ?? 1,
+        fields: fields.map((field) => ({
+          fieldId: field.fieldId,
+          key: field.key,
+          label: field.label,
+          type: field.type,
+          order: field.order,
+          isFixed: field.isFixed,
+          options: field.options,
+        })),
+      },
+      answers,
+      companySnapshot: { companyId: company._id, name: company.name },
+      industrySnapshot: { refId: industry._id, name: industry.name },
+      jobTitleSnapshot: { refId: jobTitle._id, name: jobTitle.name },
+      citySnapshot: { refId: city._id, name: city.name },
+    });
 
     return res.status(201).json({
       success: true,
       message: "Proses Registrasi Berhasil Disimpan ke Semua Database!",
       data: {
         participant_id: participant._id,
+        registration_id: registration._id,
       }
     });
 

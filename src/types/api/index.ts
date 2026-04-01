@@ -1,17 +1,5 @@
-﻿import type { EventStatus, FieldType } from "../../models/constants/enums.ts";
+﻿import type { FieldType } from "../../models/constants/enums.ts";
 import type { IRegistrationField } from "../../models/schemas/sub/registration-field.schema.ts";
-
-export interface EventCreateRequest {
-  eventId?: string;
-  createdBy: string;
-  slug?: string;
-  title: string;
-  description?: string | null;
-  eventDate: string | Date;
-  location?: string | null;
-  status?: EventStatus;
-  maxCapacity?: number | null;
-}
 
 export interface FormBuilderOptionInput {
   value: string;

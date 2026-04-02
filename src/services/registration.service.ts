@@ -257,11 +257,11 @@ export async function bulkApproveRegistrations(
       filter: {
         _id:     new Types.ObjectId(id),
         eventId: eventObjectId,
-        status:  "pending",
+        status:  "pending" as const,
       },
       update: {
         $set: {
-          status:                "approved",
+          status:                "approved" as const,
           "approval.approvedBy": new Types.ObjectId(userId),
           "approval.approvedAt": now,
           ticket:                buildTicket(),

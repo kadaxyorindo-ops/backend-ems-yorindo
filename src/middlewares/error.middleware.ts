@@ -10,7 +10,13 @@
  *   - unknown   → 500 fallback
  */
 
-import type { Request, Response, NextFunction, ErrorRequestHandler } from "express";
+import type {
+  Request,
+  RequestHandler,
+  Response,
+  NextFunction,
+  ErrorRequestHandler,
+} from "express";
 import { ZodError } from "zod";
 import { sendError } from "../utils/apiResponse";
 
@@ -36,4 +42,8 @@ export const errorHandler: ErrorRequestHandler = (
     // Safety fallback for non-Error throws
     console.error("[ERROR] Unknown error type thrown: ", err);
     sendError(res, 500, "An unexpected error occured");
+};
+
+export const notFoundHandler: RequestHandler = (_req, res): void => {
+    sendError(res, 404, "Route not found");
 };

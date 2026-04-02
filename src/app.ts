@@ -22,6 +22,8 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
 
+app.use("/api", apiRouter);
+
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });

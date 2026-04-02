@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file routes/index.ts
  * @description Central API v1 router. Mounts all versioned feature routers.
  *
@@ -12,12 +12,21 @@ import { Router } from "express";
 import authRouter from "./auth.routes.ts";
 import communicationRouter from "./communication.routes.ts";
 import eventRouter from "./event.routes.ts";
+import formBuilderRoutes from "./formBuilder.routes.ts";
+import visitorRoutes from "./visitor.routes.ts";
+import {
+  getAuthenticatedUser,
+  requestLoginOtp,
+  verifyLoginOtp,
+} from "../services/auth.service.ts";
 
 const apiV1Router = Router();
 
 apiV1Router.use("/auth", authRouter);
 apiV1Router.use("/communications", communicationRouter);
 apiV1Router.use("/events", eventRouter);
+apiRouter.use("/form-builder", formBuilderRoutes);
+apiRouter.use("/visitor", visitorRoutes);
 
 // Future routers go here:
 // apiV1Router.use("/users", userRouter);

@@ -4,6 +4,7 @@ import Company from '../models/Company.ts';
 import Industry from '../models/Industry.ts';
 import JobTitle from '../models/JobTitle.ts';
 import Participant from '../models/Participant.ts';
+import Registration from '../models/Registration.ts';
 import SurveyResponse from '../models/SurveyResponse.ts';
 import { Event } from "../models/index.ts";
 
@@ -67,7 +68,6 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       survei_result
     } = req.body;
 
-
     const city = await City.findOneAndUpdate(
       { name: lokasi_perusahaan }, 
       { name: lokasi_perusahaan, normalizedName: lokasi_perusahaan.toLowerCase() }, 
@@ -92,7 +92,6 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       { new: true, upsert: true }
     );
 
-  
     const participant = await Participant.findOneAndUpdate(
       { companyEmail: email_perusahaan }, 
       {
@@ -101,7 +100,6 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
         personalEmail: email_pribadi,
         companyEmail: email_perusahaan,
         phone: no_hp,
-     
         company: { companyId: company._id, name: company.name },
         industry: { refId: industry._id, name: industry.name },
         jobTitle: { refId: jobTitle._id, name: jobTitle.name },
@@ -110,6 +108,15 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       { new: true, upsert: true }
     );
 
+    const registration = await Registration.findOneAndUpdate(
+      { eventId: event_id, participantId: participant._id },
+      { 
+        eventId: event_id, 
+        participantId: participant._id, 
+        status: 'pending' 
+      },
+      { new: true, upsert: true }
+    );
 
     const event = await Event.findById(event_id).lean();
     if (!event) {
@@ -129,6 +136,7 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
           eventId: event_id,
           surveyId: event.surveyId || null, 
           participantId: participant._id,
+          registrationId: registration._id,
           answers: answers
         });
         
@@ -142,6 +150,7 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       message: "Proses Registrasi Berhasil Disimpan ke Semua Database!",
       data: {
         participant_id: participant._id,
+        registration_id: registration._id 
       }
     });
 

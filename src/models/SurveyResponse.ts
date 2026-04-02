@@ -4,6 +4,7 @@ const SurveyResponseSchema = new Schema({
   eventId: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
   surveyId: { type: Schema.Types.ObjectId, ref: 'Survey'},
   participantId: { type: Schema.Types.ObjectId, ref: 'Participant', required: true },
+  registrationId: { type: Schema.Types.ObjectId, ref: 'Registration'},
   answers: { type: Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
 

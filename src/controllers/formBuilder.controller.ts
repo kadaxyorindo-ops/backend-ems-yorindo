@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import {
   FormBuilderValidationError,
   getFormBuilderByEvent,
+  getFormBuilderBySlug,
   upsertFormBuilder,
 } from "../services/formBuilder.service.ts";
 import { sendError, sendSuccess } from "../utils/apiResponse.ts";
@@ -57,5 +58,27 @@ export async function upsertFormBuilderHandler(
       return sendError(res, error.statusCode, error.message);
     }
     return sendError(res, 500, "failed to save form builder", error);
+  }
+}
+
+export async function getFormBuilderBySlugHandler(
+  req: Request,
+  res: Response,
+): Promise<Response> {
+  try {
+    const { slug } = req.params;
+
+    if (!slug || typeof slug !== "string") {
+      return sendError(res, 400, "Invalid slug");
+    }
+
+    const data = await getFormBuilderBySlug(slug);
+    if (!data) {
+      return sendError(res, 404, "Event not found");
+    }
+
+    return sendSuccess(res, 200, "form builder fetched", data);
+  } catch (error) {
+    return sendError(res, 500, "failed to fetch form builder", error);
   }
 }

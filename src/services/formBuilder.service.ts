@@ -17,7 +17,12 @@ export class FormBuilderValidationError extends Error {
 
 const DEFAULT_FIXED_FIELDS: FormBuilderFieldInput[] = [
   { key: "full_name", label: "Nama Lengkap", type: "text", required: true },
-  { key: "company_name", label: "Nama Perusahaan", type: "text", required: true },
+  {
+    key: "company_name",
+    label: "Nama Perusahaan",
+    type: "text",
+    required: true,
+  },
   { key: "company_location", label: "Lokasi Perusahaan", type: "text" },
   { key: "industry", label: "Jenis Industri", type: "text" },
   { key: "job_title", label: "Jabatan", type: "text" },
@@ -82,7 +87,10 @@ function buildField(
   const options = normalizeOptions(input.options);
 
   if (type && OPTION_TYPES.includes(type)) {
-    ensure(Boolean(options && options.length > 0), "Options are required for choice fields");
+    ensure(
+      Boolean(options && options.length > 0),
+      "Options are required for choice fields",
+    );
   }
 
   return {
@@ -103,9 +111,10 @@ function buildField(
 }
 
 function buildFields(payload: FormBuilderUpsertRequest): IRegistrationField[] {
-  const fixedFields = payload.fixedFields && payload.fixedFields.length > 0
-    ? payload.fixedFields
-    : DEFAULT_FIXED_FIELDS;
+  const fixedFields =
+    payload.fixedFields && payload.fixedFields.length > 0
+      ? payload.fixedFields
+      : DEFAULT_FIXED_FIELDS;
 
   const customQuestions = payload.customQuestions ?? [];
 
@@ -114,7 +123,9 @@ function buildFields(payload: FormBuilderUpsertRequest): IRegistrationField[] {
     ...customQuestions.map((field) => ({ field, isFixed: false })),
   ];
 
-  return combined.map((item, index) => buildField(item.field, item.isFixed, index + 1));
+  return combined.map((item, index) =>
+    buildField(item.field, item.isFixed, index + 1),
+  );
 }
 
 export async function upsertFormBuilder(
@@ -128,7 +139,9 @@ export async function upsertFormBuilder(
 
   const currentVersion = event.registrationForm?.version ?? 1;
   const nextVersion = payload.publish ? currentVersion + 1 : currentVersion;
-  const publishedAt = payload.publish ? new Date() : event.registrationForm?.publishedAt ?? null;
+  const publishedAt = payload.publish
+    ? new Date()
+    : (event.registrationForm?.publishedAt ?? null);
 
   event.registrationForm = {
     version: nextVersion,
@@ -139,6 +152,14 @@ export async function upsertFormBuilder(
   await event.save();
 
   return {
+    event: {
+      id: event.id,
+      title: event.title,
+      eventDate: event.eventDate,
+      location: event.location ?? null,
+      status: event.status,
+      slug: event.slug,
+    },
     eventId: event.id,
     version: event.registrationForm.version,
     publishedAt: event.registrationForm.publishedAt,
@@ -156,6 +177,39 @@ export async function getFormBuilderByEvent(
   const fields = event.registrationForm?.fields ?? [];
 
   return {
+    event: {
+      id: event._id.toString(),
+      title: event.title,
+      eventDate: event.eventDate,
+      location: event.location ?? null,
+      status: event.status,
+      slug: event.slug,
+    },
+    eventId: event._id.toString(),
+    version: event.registrationForm?.version ?? 1,
+    publishedAt: event.registrationForm?.publishedAt ?? null,
+    fixedFields: fields.filter((field) => field.isFixed),
+    customQuestions: fields.filter((field) => !field.isFixed),
+  };
+}
+
+export async function getFormBuilderBySlug(
+  slug: string,
+): Promise<FormBuilderView | null> {
+  const event = await Event.findOne({ slug }).lean();
+  if (!event) return null;
+
+  const fields = event.registrationForm?.fields ?? [];
+
+  return {
+    event: {
+      id: event._id.toString(),
+      title: event.title,
+      eventDate: event.eventDate,
+      location: event.location ?? null,
+      status: event.status,
+      slug: event.slug,
+    },
     eventId: event._id.toString(),
     version: event.registrationForm?.version ?? 1,
     publishedAt: event.registrationForm?.publishedAt ?? null,

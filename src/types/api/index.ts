@@ -31,7 +31,17 @@ export interface FormBuilderUpsertRequest {
   publish?: boolean;
 }
 
+export interface FormBuilderEventInfo {
+  id: string;
+  title: string;
+  eventDate: Date;
+  location: string | null;
+  status: string;
+  slug?: string;
+}
+
 export interface FormBuilderView {
+  event: FormBuilderEventInfo;
   eventId: string;
   version: number;
   publishedAt: Date | null;

@@ -8,56 +8,180 @@
  *  - All DB errors propagate naturally; the controller catches them via next().
  */
 
-import { Event } from "../models";
-import type { IEvent } from "../models/schemas/event.schema";
+import { Event, Registration } from "../models/index.ts";
+import type { IEvent } from "../models/schemas/event.schema.ts";
 import type {
   GetAllEventsQuery,
   CreateEventBody,
   UpdateEventBody,
-  DeleteEventBody,
-} from "../validators/event.validators";
-import type { PaginatedData } from "../types/api/index";
-import { Types } from "mongoose";
-import { slugifyUnique } from "../utils/slugify";
+} from "../validators/event.validators.ts";
+import type { PaginatedData } from "../types/api/index.ts";
+import { Types, type PipelineStage } from "mongoose";
+import { slugifyUnique } from "../utils/slugify.ts";
 
-// The shape of an event document returned from .lean() —
-// plain JS object (no Mongoose methods), with _id as string after JSON serialization.
-type LeanEvent = IEvent & { _id: unknown; createdAt: Date; updatedAt: Date };
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 /**
- * Fetches a paginated, filtered, and sorted list of events from MongoDB.
- *
- * @param query - Validated query parameters from the request.
- * @returns    Paginated wrapper containing the event list and metadata.
+ * A lean event document returned from the aggregation pipeline.
+ * Extends the base IEvent with computed registration count fields that are
+ * attached by the $lookup + $addFields stages in getAllEvents.
  */
+export type EventWithCounts = IEvent & {
+  _id: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  /** Number of registrations with status "approved" for this event. */
+  approvedCount: number;
+  /** Number of registrations with status "pending" for this event. */
+  pendingCount: number;
+  /**
+   * Total non-rejected registrations (approved + pending).
+   * This is the denominator used in the progress bar on the event list:
+   * approvedCount / totalCount = "what fraction has been approved".
+   */
+  totalCount: number;
+};
 
-// Get all event
+/**
+ * Stats returned by getEventStats for the dashboard header cards.
+ */
+export interface EventStats {
+  /**
+   * Sum of approved registrations across all events in the system.
+   * Used for the "Total Impact" stat card.
+   */
+  totalApprovedAcrossAllEvents: number;
+
+  /**
+   * The single nearest future event (earliest eventDate > now) with
+   * status "upcoming" or "registration". Null if no such event exists.
+   * Used for the "Upcoming Milestone" stat card.
+   */
+  nearestUpcomingEvent: {
+    _id: unknown;
+    title: string;
+    eventDate: Date;
+    status: string;
+    industry: { refId: unknown; name: string | null };
+  } | null;
+}
+
+// ---------------------------------------------------------------------------
+// getAllEvents
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches a paginated, filtered, and sorted list of events.
+ * Each event document is augmented with registration count fields via a
+ * $lookup pipeline so the progress bar on the UI can be rendered without
+ * a second round-trip.
+ *
+ * Architecture note — why $facet?
+ *   We need both the paginated items AND a total count in one query.
+ *   $facet runs two independent sub-pipelines against the same $match result:
+ *     - "items"  → sorted, paginated, then joined with registrations
+ *     - "total"  → just a $count
+ *
+ *   Crucially, the $lookup is placed INSIDE the "items" sub-pipeline, AFTER
+ *   $skip and $limit. This means the registration join only executes against
+ *   the 5 events on the current page — not the entire events collection.
+ */
 export async function getAllEvents(
   query: GetAllEventsQuery,
-): Promise<PaginatedData<LeanEvent>> {
+): Promise<PaginatedData<EventWithCounts>> {
   const { page, limit, status, category, search, sortBy, sortOrder } = query;
 
-  // Build the filter object — only add fields that were actually provided.
-  // An empty object means "return everything" (no filter applied).
-  // Typed as Record<string, unknown> because mongoose v9 no longer exports
-  // a public FilterQuery type, and .find() accepts any plain object at runtime.
+  // Build the pre-aggregation filter.
   const filter: Record<string, unknown> = {};
-  if (status) filter.status = status;
-  if (category) filter.category = { $regex: category, $options: "i" }; // case-insensitive
-  if (search) filter.title = { $regex: search, $options: "i" };
+  if (status)   filter.status   = status;
+  if (category) filter.category = { $regex: category, $options: "i" };
+  if (search)   filter.title    = { $regex: search,   $options: "i" };
 
   const sortDirection = sortOrder === "asc" ? 1 : -1;
   const skip = (page - 1) * limit;
 
-  // Run the query and count in parallel — avoids two sequential round-trips.
-  const [items, total] = await Promise.all([
-    Event.find(filter)
-      .sort({ [sortBy]: sortDirection })
-      .skip(skip)
-      .limit(limit)
-      .lean<LeanEvent[]>(), // .lean() returns plain JS objects (faster, no Mongoose overhead)
-    Event.countDocuments(filter),
-  ]);
+  const PipelineStage = [
+    // Stage 1 — filter the events collection.
+    { $match: filter },
+
+    // Stage 2 — $facet splits into two independent sub-pipelines.
+    {
+      $facet: {
+        // ── Sub-pipeline A: paginated items with registration counts ──────
+        items: [
+          // Sort before pagination so the correct window is selected.
+          { $sort: { [sortBy]: sortDirection } },
+          { $skip: skip },
+          { $limit: limit },
+
+          // Join the registrations collection.
+          // Using a pipeline-style $lookup so we can filter by status
+          // inside the join — MongoDB only returns the docs we need.
+          {
+            $lookup: {
+              from: "registrations",
+              let: { eventId: "$_id" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: { $eq: ["$eventId", "$$eventId"] },
+                    // Only pull approved and pending — rejected and
+                    // checked_in are excluded from the progress bar.
+                    status: { $in: ["approved", "pending"] },
+                  },
+                },
+                // We only need the status field for counting — projecting
+                // it keeps the lookup documents small.
+                { $project: { status: 1 } },
+              ],
+              as: "registrationDocs",
+            },
+          },
+
+          // Compute the three count fields from the joined array.
+          {
+            $addFields: {
+              approvedCount: {
+                $size: {
+                  $filter: {
+                    input: "$registrationDocs",
+                    as:    "reg",
+                    cond:  { $eq: ["$$reg.status", "approved"] },
+                  },
+                },
+              },
+              pendingCount: {
+                $size: {
+                  $filter: {
+                    input: "$registrationDocs",
+                    as:    "reg",
+                    cond:  { $eq: ["$$reg.status", "pending"] },
+                  },
+                },
+              },
+              // totalCount = approvedCount + pendingCount (derived below)
+              totalCount: { $size: "$registrationDocs" },
+            },
+          },
+
+          // Remove the raw joined array — the counts are all we need.
+          { $project: { registrationDocs: 0 } },
+        ],
+
+        // ── Sub-pipeline B: total count for pagination metadata ──────────
+        total: [
+          { $count: "count" },
+        ],
+      },
+    },
+  ];
+
+  const [result] = await Event.aggregate(PipelineStage);
+
+  const items: EventWithCounts[] = result?.items  ?? [];
+  const total: number            = result?.total[0]?.count ?? 0;
 
   return {
     items,
@@ -70,30 +194,81 @@ export async function getAllEvents(
   };
 }
 
-// Create Event
+// ---------------------------------------------------------------------------
+// getEventStats
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns global dashboard stats for the two header stat cards:
+ *   1. Total approved registrations across ALL events.
+ *   2. The nearest upcoming event (earliest future eventDate with
+ *      status "upcoming" or "registration").
+ *
+ * These are intentionally separated from getAllEvents because they are
+ * global aggregates — they do not belong on individual event rows.
+ * The frontend calls this endpoint once on page load for the stat cards.
+ */
+export async function getEventStats(): Promise<EventStats> {
+  const now = new Date();
+
+  // Run both queries in parallel — no dependency between them.
+  const [countResult, nearestEvent] = await Promise.all([
+    // Query 1 — count all approved registrations across all events.
+    Registration.countDocuments({ status: "approved" }),
+
+    // Query 2 — find the nearest upcoming event.
+    Event.findOne({
+      status:    { $in: ["upcoming", "registration"] },
+      eventDate: { $gt: now },
+    })
+      .sort({ eventDate: 1 }) // ascending = nearest first
+      .select("title eventDate status industry")
+      .lean<Pick<IEvent, "title" | "eventDate" | "status" | "industry"> & { _id: Types.ObjectId }>(),
+  ]);
+
+  return {
+    totalApprovedAcrossAllEvents: countResult,
+    nearestUpcomingEvent: nearestEvent
+      ? {
+          _id:       nearestEvent._id,
+          title:     nearestEvent.title,
+          eventDate: nearestEvent.eventDate,
+          status:    nearestEvent.status,
+          industry:  nearestEvent.industry,
+        }
+      : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// createEvent
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a new event. Status is always forced to "draft" — never from client.
+ */
 export async function createEvent(
   body: CreateEventBody,
   userId: string,
 ): Promise<IEvent & { _id: unknown }> {
-  // Use `new Event().save()` instead of `Event.create()` — Mongoose v9's strict
-  // TypeScript overloads on create() fail to resolve when the input is complex,
-  // causing the return type to collapse to `never`. The two-step approach avoids
-  // that ambiguity and gives TypeScript a concrete HydratedDocument to work with.
+  // Using new Event().save() instead of Event.create() — see existing
+  // codebase comment in the original file for the TypeScript reason.
   const doc = await new Event({
-    title: body.title,
-    slug: slugifyUnique(body.title),
+    title:       body.title,
+    slug:        slugifyUnique(body.title),
     description: body.description,
-    category: body.category,
-    eventDate: body.eventDate,
-    location: body.location,
-    maxCapacity: body.maxCapacity,
-    status: "draft", // always forced — never from client input
+    category:    body.category,
+    industry:    body.industry,
+    eventDate:   body.eventDate,
+    location:    body.location,
+    // maxCapacity removed — client does not use hard capacity limits.
+    status: "draft",
     registrationForm: {
-      version: 1, // starts at 1 on creation
-      fields: body.registrationForm.fields,
-      publishedAt: null, // null until the event is published
+      version:     1,
+      fields:      body.registrationForm.fields,
+      publishedAt: null,
     },
-    surveyId: null,
+    surveyId:  null,
     createdBy: new Types.ObjectId(userId),
     updatedBy: null,
   }).save();
@@ -101,7 +276,14 @@ export async function createEvent(
   return doc.toObject();
 }
 
-// Update Event
+// ---------------------------------------------------------------------------
+// updateEvent
+// ---------------------------------------------------------------------------
+
+/**
+ * Partially updates an event. Only provided fields are changed.
+ * Returns null if no document with that _id exists (controller handles 404).
+ */
 export async function updateEvent(
   id: string,
   body: UpdateEventBody,
@@ -109,20 +291,18 @@ export async function updateEvent(
 ): Promise<(IEvent & { _id: unknown }) | null> {
   const { registrationForm, ...rest } = body;
 
-  // Build the update payload explicitly.
-  // Spreading `rest` handles all scalar fields (title, description, etc.).
-  // registrationForm.fields is nested, so it needs dot-notation to avoid
-  // overwriting sibling fields like version and publishedAt.
   const update: Record<string, unknown> = {
     ...rest,
     updatedBy: new Types.ObjectId(userId),
   };
 
-  // Regenerate slug if title is being updated
+  // Regenerate slug if title is being updated.
   if (rest.title !== undefined) {
     update.slug = slugifyUnique(rest.title);
   }
 
+  // Use dot-notation for the nested registrationForm.fields to avoid
+  // accidentally overwriting version and publishedAt sibling fields.
   if (registrationForm !== undefined) {
     update["registrationForm.fields"] = registrationForm.fields;
   }
@@ -131,16 +311,23 @@ export async function updateEvent(
     id,
     { $set: update },
     {
-      new: true, // return the updated document, not the original
-      runValidators: true, // run Mongoose schema validators on the new values
+      new:          true, // return the updated document
+      runValidators: true,
     },
   ).lean<IEvent & { _id: unknown }>();
 
-  // Returns null if no document with that _id exists — controller handles the 404
   return doc;
 }
 
-// Delete Event (soft delete — sets status to "cancelled")
+// ---------------------------------------------------------------------------
+// deleteEvent (soft delete)
+// ---------------------------------------------------------------------------
+
+/**
+ * Soft-deletes an event by setting its status to "cancelled".
+ * The document is preserved — all linked registrations and audit logs remain.
+ * Returns null if no document with that _id exists (controller handles 404).
+ */
 export async function deleteEvent(
   id: string,
   userId: string,
@@ -149,13 +336,12 @@ export async function deleteEvent(
     id,
     {
       $set: {
-        status: "cancelled", // soft delete via lifecycle status
+        status:    "cancelled",
         updatedBy: new Types.ObjectId(userId),
       },
     },
     { new: true },
   ).lean<IEvent & { _id: unknown }>();
 
-  // Returns null if no document with that _id exists — controller handles the 404
   return doc;
 }

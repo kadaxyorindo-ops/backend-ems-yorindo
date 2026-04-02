@@ -10,10 +10,12 @@
 
 import { Router } from "express";
 import eventRouter from "./event.routes.ts";
+import industryRouter from "./industry.routes.ts";
 
 const apiRouter = Router();
 
 apiRouter.use("/events", eventRouter);
+apiRouter.use("/industries", industryRouter);
 
 // Future routers go here:
 // apiRouter.use("/registrations", registrationRouter);

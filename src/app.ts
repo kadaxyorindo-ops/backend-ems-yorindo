@@ -4,9 +4,16 @@ import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import { verifyBrevoSMTP } from "./config/brevo.ts";
-import apiRouter from "./routes/index.ts";
-import { errorHandler } from "./middlewares/error.middleware.ts";
-import authRouter from "./routes/auth.routes.ts";
+import {
+  getEmailQueueHealthSnapshot,
+  verifyEmailQueueConnection,
+} from "./services/email-queue.service.ts";
+import apiV1Router from "./routes/index.ts";
+import {
+  errorHandler,
+  notFoundHandler,
+} from "./middlewares/error.middleware.ts";
+
 const app = express();
 
 app.set("trust proxy", 1);
@@ -15,20 +22,10 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
 
-app.use("/api", apiRouter);
-
-/**
- * Application Health Check
- * Returns: 200 OK if server is running
- */
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-/**
- * Database Health Check
- * Returns: 200 OK + connection info if MongoDB is connected, 503 if disconnected
- */
 app.get("/db-health", (_req, res) => {
   const mongoState = mongoose.connection.readyState;
   const states = {
@@ -39,9 +36,8 @@ app.get("/db-health", (_req, res) => {
   };
 
   const isConnected = mongoState === 1;
-  const statusCode = isConnected ? 200 : 503;
 
-  res.status(statusCode).json({
+  res.status(isConnected ? 200 : 503).json({
     status: isConnected ? "ok" : "error",
     database: {
       state: states[mongoState as keyof typeof states] || "unknown",
@@ -51,10 +47,6 @@ app.get("/db-health", (_req, res) => {
   });
 });
 
-/**
- * Brevo SMTP Health Check
- * Returns: 200 OK if SMTP credentials and connection are valid, 503 otherwise
- */
 app.get("/brevo-health", async (_req, res) => {
   const result = await verifyBrevoSMTP();
 
@@ -81,11 +73,41 @@ app.get("/brevo-health", async (_req, res) => {
   });
 });
 
-// --- API routes ---
-app.use("/api/v1", apiRouter);
-app.use("/api/v1/auth", authRouter);
+app.get("/queue-health", async (_req, res) => {
+  const snapshot = getEmailQueueHealthSnapshot();
+  const result = snapshot.connected
+    ? snapshot
+    : await verifyEmailQueueConnection();
 
-// -- Global Errorhandler
+  if (!result.ok) {
+    return res.status(503).json({
+      status: "error",
+      provider: "rabbitmq",
+      queue: {
+        url: result.url,
+        name: result.queueName,
+        connected: result.connected,
+        consumerStarted: result.consumerStarted,
+      },
+      message: result.error,
+    });
+  }
+
+  return res.status(200).json({
+    status: "ok",
+    provider: "rabbitmq",
+    queue: {
+      url: result.url,
+      name: result.queueName,
+      connected: result.connected,
+      consumerStarted: result.consumerStarted,
+    },
+  });
+});
+
+app.use("/api/v1", apiV1Router);
+
+app.use(notFoundHandler);
 app.use(errorHandler);
 
 export default app;

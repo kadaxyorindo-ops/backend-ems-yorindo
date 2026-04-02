@@ -33,8 +33,8 @@ export interface ISurveyResponse {
   /** Reference to the event this response is for (denormalized for query efficiency). */
   eventId: Types.ObjectId;
 
-  /** Reference to the survey that was answered. */
-  surveyId: Types.ObjectId;
+  /** Reference to the survey that was answered (optional for registration custom answers). */
+  surveyId: Types.ObjectId | null;
 
   /** Reference to the participant who submitted this response. */
   participantId: Types.ObjectId;
@@ -62,7 +62,7 @@ const SurveyResponseSchema = new Schema<ISurveyResponse>(
     surveyId: {
       type: Schema.Types.ObjectId,
       ref: "Survey",
-      required: true,
+      default: null,
     },
     participantId: {
       type: Schema.Types.ObjectId,
@@ -87,8 +87,8 @@ const SurveyResponseSchema = new Schema<ISurveyResponse>(
 
 // --- Indexes ---
 
-// One response per participant per survey.
-SurveyResponseSchema.index({ surveyId: 1, participantId: 1 }, { unique: true });
+// One response per participant per event.
+SurveyResponseSchema.index({ eventId: 1, participantId: 1 }, { unique: true });
 
 // Analytics query — "all responses for event X, sorted by submission time".
 SurveyResponseSchema.index({ eventId: 1, submittedAt: -1 });

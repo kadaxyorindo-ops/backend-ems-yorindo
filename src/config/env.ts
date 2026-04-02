@@ -9,6 +9,9 @@ function parseBoolean(value: string | undefined, defaultValue = false) {
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? 5000),
+  rabbitmqUrl: process.env.RABBITMQ_URL?.trim() || "amqp://guest:guest@localhost:5672",
+  emailQueueName: process.env.EMAIL_QUEUE_NAME?.trim() || "email.send",
+  emailQueuePrefetch: Number(process.env.EMAIL_QUEUE_PREFETCH ?? 1),
   jwtSecret:
     process.env.JWT_SECRET?.trim() || "ems-yorindo-dev-secret-change-me",
   jwtExpiresInHours: Number(process.env.JWT_EXPIRES_IN_HOURS ?? 8),

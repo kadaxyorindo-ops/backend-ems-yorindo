@@ -8,49 +8,40 @@ import Registration from '../models/Registration.ts';
 import SurveyResponse from '../models/SurveyResponse.ts';
 import { Event } from "../models/index.ts";
 
-interface SurveyAnswerInput {
-  questionId: string;
+interface CustomAnswerInput {
+  questionId?: string;
   label: string;
-  type: string;
+  type?: string;
   value: unknown;
 }
 
-function buildQuestionId(label: string, index: number): string {
-  const slug = label
+function normalizeKey(value: string): string {
+  return value
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-
-  return slug ? `q_${slug}` : `q_${index + 1}`;
+    .replace(/\s+/g, " ");
 }
 
-function normalizeSurveyAnswers(input: unknown): SurveyAnswerInput[] {
-  if (!input) return [];
+function buildCustomValueMap(input: unknown): Map<string, unknown> {
+  const map = new Map<string, unknown>();
+  if (!input) return map;
 
   if (Array.isArray(input)) {
-    return input as SurveyAnswerInput[];
+    for (const item of input as CustomAnswerInput[]) {
+      if (item?.label) {
+        map.set(normalizeKey(item.label), item.value);
+      }
+    }
+    return map;
   }
 
   if (typeof input === "object") {
-    return Object.entries(input as Record<string, unknown>).map(
-      ([label, value], index) => {
-        let type = "text";
-
-        if (Array.isArray(value)) type = "checkbox";
-        else if (typeof value === "number") type = "number";
-
-        return {
-          questionId: buildQuestionId(label, index),
-          label,
-          type,
-          value,
-        };
-      },
-    );
+    for (const [label, value] of Object.entries(input as Record<string, unknown>)) {
+      map.set(normalizeKey(label), value);
+    }
   }
 
-  return [];
+  return map;
 }
 
 export const submitRegistration = async (req: Request, res: Response): Promise<any> => {

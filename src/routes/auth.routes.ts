@@ -5,7 +5,7 @@ import {
   requestOtpLimiter,
   verifyOtpLimiter,
 } from "../middlewares/rateLimiter.middleware.ts";
-import { validateBody } from "../middlewares/validate.middleware.ts";
+import { validate } from "../middlewares/validate.middleware.ts";
 import { sendError, sendSuccess } from "../utils/apiResponse.ts";
 import {
   getAuthenticatedUser,
@@ -16,39 +16,39 @@ import {
 const authRouter = Router();
 
 const requestOtpSchema = z.object({
-  email: z.string().trim().email("Email tidak valid."),
+  email: z.string().trim().email("Invalid email."),
 });
 
 const verifyOtpSchema = z.object({
-  email: z.string().trim().email("Email tidak valid."),
+  email: z.string().trim().email("Invalid email."),
   code: z
     .string()
     .trim()
-    .regex(/^\d{6}$/, "Kode OTP harus terdiri dari 6 digit."),
+    .regex(/^\d{6}$/, "The OTP code must consist of 6 digits."),
 });
 
 authRouter.post(
   "/request-otp",
   requestOtpLimiter,
-  validateBody(requestOtpSchema),
+  validate(requestOtpSchema),
   async (req, res) => {
     try {
       const result = await requestLoginOtp({
-        email: req.body.email,
+        email: res.locals.parsed.body.email,
         ipAddress: req.ip ?? null,
       });
 
       return sendSuccess(
         res,
         200,
-        "Kode OTP sudah dikirim ke email Anda.",
+        "The OTP code has been sent to your email.",
         result,
       );
     } catch (error) {
       return sendError(
         res,
         400,
-        error instanceof Error ? error.message : "Gagal meminta OTP login.",
+        error instanceof Error ? error.message : "Failed to request login OTP.",
       );
     }
   },
@@ -57,22 +57,22 @@ authRouter.post(
 authRouter.post(
   "/verify-otp",
   verifyOtpLimiter,
-  validateBody(verifyOtpSchema),
+  validate(verifyOtpSchema),
   async (req, res) => {
     try {
       const result = await verifyLoginOtp({
-        email: req.body.email,
-        code: req.body.code,
+        email: res.locals.parsed.body.email,
+        code: res.locals.parsed.body.code,
         ipAddress: req.ip ?? null,
         userAgent: req.get("user-agent") ?? null,
       });
 
-      return sendSuccess(res, 200, "Login berhasil.", result);
+      return sendSuccess(res, 200, "Login success.", result);
     } catch (error) {
       return sendError(
         res,
         401,
-        error instanceof Error ? error.message : "Verifikasi OTP gagal.",
+        error instanceof Error ? error.message : "OTP verification failed.",
       );
     }
   },
@@ -83,16 +83,16 @@ authRouter.get("/me", requireAuth, async (req, res) => {
     const userId = req.auth?.sub;
 
     if (!userId) {
-      return sendError(res, 401, "Sesi login tidak ditemukan.");
+      return sendError(res, 401, "Login session not found.");
     }
 
     const user = await getAuthenticatedUser(userId);
-    return sendSuccess(res, 200, "Profil pengguna berhasil diambil.", user);
+    return sendSuccess(res, 200, "The user profile has been successfully retrieved.", user);
   } catch (error) {
     return sendError(
       res,
       401,
-      error instanceof Error ? error.message : "Gagal mengambil profil login.",
+      error instanceof Error ? error.message : "Failed to retrieve login profile.",
     );
   }
 });

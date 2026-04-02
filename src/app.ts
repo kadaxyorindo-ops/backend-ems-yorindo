@@ -15,6 +15,9 @@ import {
   notFoundHandler,
 } from "./middlewares/error.middleware.ts";
 
+import apiRouter from "./routes/index.ts";
+import { errorHandler } from "./middlewares/error.middleware.ts";
+import authRouter from "./routes/auth.routes.ts";
 const app = express();
 
 app.set("trust proxy", 1);
@@ -126,6 +129,11 @@ app.get("/queue-health", async (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/communications", communicationRouter);
 app.use(notFoundHandler);
+// --- API routes ---
+app.use("/api/v1", apiRouter);
+app.use("/api/v1/auth", authRouter);
+
+// -- Global Errorhandler
 app.use(errorHandler);
 
 export default app;

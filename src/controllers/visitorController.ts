@@ -6,7 +6,7 @@ import JobTitle from '../models/JobTitle.ts';
 import Participant from '../models/Participant.ts';
 import Registration from '../models/Registration.ts';
 import SurveyResponse from '../models/SurveyResponse.ts';
-import { Event, Registration } from "../models/index.ts";
+import { Event } from "../models/index.ts";
 
 interface SurveyAnswerInput {
   questionId: string;
@@ -132,7 +132,6 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
         participantId: participant._id,
       });
 
-      if (!existingSurvey) {
       if (!existingSurvey) {
         const survey = new SurveyResponse({
           eventId: event_id,

@@ -45,13 +45,16 @@
 import { Schema, model, Types } from "mongoose";
 import { STATUS } from "../constants/enums.js";
 import type { EventStatus } from "../constants/enums.js";
-import { safeTrim } from "../helpers/transformers.js";
+import { lowerTrim, safeTrim } from "../helpers/transformers.js";
 import { RegistrationFieldSchema } from "./sub/registration-field.schema.js";
 import type { IRegistrationField } from "./sub/registration-field.schema.js";
 import { MasterSnapshotSchema } from "./sub/master-snapshot.schema.js";
 import type { IMasterSnapshot } from "./sub/master-snapshot.schema.js";
 
 export interface IEvent {
+  /** URL-friendly slug for public registration links. */
+  slug: string;
+
   /** Event title displayed in the UI and communications (e.g. "Tech Expo 2025"). */
   _id: Types.ObjectId;
   createdAt: Date;

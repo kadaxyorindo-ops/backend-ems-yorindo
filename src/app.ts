@@ -8,9 +8,7 @@ import {
   getEmailQueueHealthSnapshot,
   verifyEmailQueueConnection,
 } from "./services/email-queue.service.ts";
-import apiRouter from "./routes/index.ts";
-import authRouter from "./routes/auth.routes.ts";
-import communicationRouter from "./routes/communication.routes.ts";
+import apiV1Router from "./routes/index.ts";
 import {
   errorHandler,
   notFoundHandler,
@@ -110,10 +108,7 @@ app.get("/queue-health", async (_req, res) => {
   });
 });
 
-app.use("/api/auth", authRouter);
-app.use("/api/communications", communicationRouter);
-app.use("/api/v1/auth", authRouter);
-app.use("/api/v1", apiRouter);
+app.use("/api/v1", apiV1Router);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

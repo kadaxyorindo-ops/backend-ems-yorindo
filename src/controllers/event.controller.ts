@@ -93,8 +93,13 @@ export async function handleCreateEvent(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const body   = res.locals.parsed.body as CreateEventBody;
-    const userId = req.auth!.sub;
+    const body = res.locals.parsed.body as CreateEventBody;
+    const userId = req.auth?.sub ?? body.createdBy;
+
+    if (!userId) {
+      sendError(res, 401, "Access denied. Please log in again.");
+      return;
+    }
 
     const event = await createEvent(body, userId);
     sendSuccess(res, 201, "Event created successfully", event);

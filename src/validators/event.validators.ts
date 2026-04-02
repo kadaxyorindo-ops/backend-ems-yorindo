@@ -115,7 +115,8 @@ export const createEventBodySchema = z.object({
   registrationForm: z.object({
     fields: z.array(RegistrationFieldSchema).default([]),
   }).default({ fields: [] }),
-
+  // Optional fallback when auth isn't used.
+  createdBy: objectIdSchema.optional(),
   // status is intentionally excluded — always forced to "draft" in the service
 });
 

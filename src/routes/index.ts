@@ -22,11 +22,11 @@ import {
 
 const apiV1Router = Router();
 
+apiV1Router.use("/form-builder", formBuilderRoutes);
+apiV1Router.use("/visitor", visitorRoutes);
 apiV1Router.use("/auth", authRouter);
 apiV1Router.use("/communications", communicationRouter);
 apiV1Router.use("/events", eventRouter);
-apiRouter.use("/form-builder", formBuilderRoutes);
-apiRouter.use("/visitor", visitorRoutes);
 
 // Future routers go here:
 // apiV1Router.use("/users", userRouter);

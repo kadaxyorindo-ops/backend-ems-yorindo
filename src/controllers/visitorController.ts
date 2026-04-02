@@ -115,9 +115,9 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
     }
 
-    const answers = normalizeSurveyAnswers(survei_result);
+    const answersMap = buildCustomValueMap(survei_result);
 
-    if (answers.length > 0) {
+    if (answersMap.size > 0) {
       const existingSurvey = await SurveyResponse.findOne({
         eventId: event_id,
         participantId: participant._id,
@@ -129,7 +129,7 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
           surveyId: event.surveyId || null, 
           participantId: participant._id,
           registrationId: registration._id,
-          answers: answers
+          answers: Object.fromEntries(answersMap)
         });
         
         await survey.save();

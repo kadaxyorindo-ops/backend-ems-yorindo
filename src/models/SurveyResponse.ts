@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from 'mongoose';
+﻿import mongoose, { Schema, Document } from 'mongoose';
 
 const SurveyResponseSchema = new Schema({
   eventId: { type: Schema.Types.ObjectId, ref: 'Event', required: true },
@@ -8,6 +8,6 @@ const SurveyResponseSchema = new Schema({
   answers: { type: Schema.Types.Mixed, default: {} }
 }, { timestamps: true });
 
-SurveyResponseSchema.index({ surveyId: 1, participantId: 1 }, { unique: true });
+SurveyResponseSchema.index({ eventId: 1, participantId: 1 }, { unique: true });
 
 export default mongoose.model('survey_responses', SurveyResponseSchema);

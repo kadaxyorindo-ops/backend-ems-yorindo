@@ -1,6 +1,6 @@
 /**
  * @file routes/index.ts
- * @description Central API router. Mounts all feature routers under /api/v1.
+ * @description Central API v1 router. Mounts all versioned feature routers.
  *
  * To add a new feature:
  *   1. Create src/routes/yourFeature.routes.ts
@@ -9,14 +9,17 @@
  */
 
 import { Router } from "express";
+import authRouter from "./auth.routes.ts";
+import communicationRouter from "./communication.routes.ts";
 import eventRouter from "./event.routes.ts";
 
-const apiRouter = Router();
+const apiV1Router = Router();
 
-apiRouter.use("/events", eventRouter);
+apiV1Router.use("/auth", authRouter);
+apiV1Router.use("/communications", communicationRouter);
+apiV1Router.use("/events", eventRouter);
 
 // Future routers go here:
-// apiRouter.use("/registrations", registrationRouter);
-// apiRouter.use("/users", userRouter);
+// apiV1Router.use("/users", userRouter);
 
-export default apiRouter;
+export default apiV1Router;

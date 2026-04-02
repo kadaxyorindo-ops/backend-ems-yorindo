@@ -52,9 +52,6 @@ import { MasterSnapshotSchema } from "./sub/master-snapshot.schema.js";
 import type { IMasterSnapshot } from "./sub/master-snapshot.schema.js";
 
 export interface IEvent {
-  /** URL-friendly slug for public registration links. */
-  slug: string;
-
   /** Event title displayed in the UI and communications (e.g. "Tech Expo 2025"). */
   _id: Types.ObjectId;
   createdAt: Date;

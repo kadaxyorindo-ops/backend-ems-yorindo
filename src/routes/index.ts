@@ -12,6 +12,7 @@ import { Router } from "express";
 import authRouter from "./auth.routes.ts";
 import communicationRouter from "./communication.routes.ts";
 import eventRouter from "./event.routes.ts";
+import industryRouter from "./industry.routes.ts";
 import formBuilderRoutes from "./formBuilder.routes.ts";
 import visitorRoutes from "./visitor.routes.ts";
 import {
@@ -22,6 +23,7 @@ import {
 
 const apiV1Router = Router();
 
+apiV1Router.use("/industries", industryRouter);
 apiV1Router.use("/form-builder", formBuilderRoutes);
 apiV1Router.use("/visitor", visitorRoutes);
 apiV1Router.use("/auth", authRouter);

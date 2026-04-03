@@ -12,42 +12,80 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
-import type { GetAllEventsQuery } from "../validators/event.validators";
-import { getAllEvents, createEvent, updateEvent, deleteEvent } from "../services/event.service";
-import { sendSuccess, sendError } from "../utils/apiResponse";
-import type { CreateEventBody, EventParams, UpdateEventBody, DeleteEventBody } from "../validators/event.validators";
+import type { GetAllEventsQuery } from "../validators/event.validators.ts";
+import {
+  getAllEvents,
+  getEventStats,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+} from "../services/event.service.ts";
+import { sendSuccess, sendError } from "../utils/apiResponse.ts";
+import type {
+  CreateEventBody,
+  EventParams,
+  UpdateEventBody,
+} from "../validators/event.validators.ts";
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/events
+// ---------------------------------------------------------------------------
 
 /**
- * GET /api/v1/events
- * Returns a paginated list of events, optionally filtered and sorted.
+ * Returns a paginated list of events with per-event registration counts.
+ * Each item includes approvedCount, pendingCount, and totalCount fields
+ * computed via a $facet aggregation in the service layer.
  */
-
 export async function handleGetAllEvents(
-    _req: Request,
-    res: Response,
-    next: NextFunction,
+  _req: Request,
+  res: Response,
+  next: NextFunction,
 ): Promise<void> {
-    try {
-        // res.locals.parsed.query is set by the validate middleware.
-        // It holds the Zod-parsed and coerced version of req.query, with correct
-        // types (e.g. page/limit as numbers, not strings) and applied defaults.
-        const query = res.locals.parsed.query as GetAllEventsQuery;
-
-        const result = await getAllEvents(query);
-
-        sendSuccess(res, 200, "Events fetched successfully", result);
-
-    } catch (error) {
-        // Pass any DB or runtime error to the global error handler (error.middleware.ts)
-        next(error);
-    }
+  try {
+    const query = res.locals.parsed.query as GetAllEventsQuery;
+    const result = await getAllEvents(query);
+    sendSuccess(res, 200, "Events fetched successfully", result);
+  } catch (error) {
+    next(error);
+  }
 }
 
+// ---------------------------------------------------------------------------
+// GET /api/v1/events/stats
+// ---------------------------------------------------------------------------
+
 /**
- * POST /api/v1/events
+ * Returns global dashboard stats for the two header stat cards:
+ *   - totalApprovedAcrossAllEvents  → "Total Impact" card
+ *   - nearestUpcomingEvent          → "Upcoming Milestone" card
+ *
+ * This endpoint is intentionally separate from getAllEvents because these
+ * are global aggregates — they do not belong on individual event rows.
+ *
+ * Route placement note:
+ *   This route is registered as GET /stats BEFORE GET /:id in event.routes.ts.
+ *   If it were registered after, Express would treat the literal string "stats"
+ *   as an ObjectId param and the objectIdSchema validation would reject it.
+ */
+export async function handleGetEventStats(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const stats = await getEventStats();
+    sendSuccess(res, 200, "Event stats fetched successfully", stats);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/events
+// ---------------------------------------------------------------------------
+
+/**
  * Creates a new event. Status is always forced to "draft" by the service.
- * createdBy comes from the request body for now; will move to req.user._id
- * once auth middleware is implemented.
  */
 export async function handleCreateEvent(
   req: Request,
@@ -64,18 +102,18 @@ export async function handleCreateEvent(
     }
 
     const event = await createEvent(body, userId);
-
     sendSuccess(res, 201, "Event created successfully", event);
   } catch (error) {
     next(error);
   }
 }
 
+// ---------------------------------------------------------------------------
+// PATCH /api/v1/events/:id
+// ---------------------------------------------------------------------------
+
 /**
- * PATCH /api/v1/events/:id
  * Partially updates an event. Only provided fields are changed.
- * updatedBy comes from the request body for now; will move to req.user._id
- * once auth middleware is implemented.
  */
 export async function handleUpdateEvent(
   req: Request,
@@ -84,7 +122,7 @@ export async function handleUpdateEvent(
 ): Promise<void> {
   try {
     const { id } = res.locals.parsed.params as EventParams;
-    const body    = res.locals.parsed.body   as UpdateEventBody;
+    const body   = res.locals.parsed.body   as UpdateEventBody;
     const userId = req.auth!.sub;
 
     const event = await updateEvent(id, body, userId);
@@ -100,11 +138,13 @@ export async function handleUpdateEvent(
   }
 }
 
+// ---------------------------------------------------------------------------
+// DELETE /api/v1/events/:id
+// ---------------------------------------------------------------------------
+
 /**
- * DELETE /api/v1/events/:id
  * Soft-deletes an event by setting its status to "cancelled".
- * The document is preserved in the database — all linked registrations,
- * surveys, and audit logs remain intact and resolvable.
+ * The document is preserved — all linked registrations and audit logs remain.
  */
 export async function handleDeleteEvent(
   req: Request,
@@ -113,7 +153,7 @@ export async function handleDeleteEvent(
 ): Promise<void> {
   try {
     const { id } = res.locals.parsed.params as EventParams;
-    const userId   = req.auth!.sub;
+    const userId = req.auth!.sub;
 
     const event = await deleteEvent(id, userId);
 

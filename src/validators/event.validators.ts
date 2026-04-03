@@ -134,7 +134,6 @@ export type EventParams = z.infer<typeof eventParamsSchema>;
  *
  * Excluded fields:
  *   - createdBy  → immutable after creation
- *   - status     → controlled via its own dedicated endpoint
  *   - updatedBy  → injected from req.auth in the service, never from client
  *   - maxCapacity → removed entirely
  */
@@ -145,6 +144,7 @@ export const updateEventBodySchema = z.object({
   industry:    industrySnapshotSchema.optional(),
   eventDate:   z.coerce.date().optional(),
   location:    z.string().trim().min(1).nullable().optional(),
+  status: z.enum(STATUS.EVENT).optional(),
   registrationForm: z.object({
     fields: z.array(RegistrationFieldSchema),
   }).optional(),

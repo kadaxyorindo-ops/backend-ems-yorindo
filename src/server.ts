@@ -82,13 +82,13 @@ async function bootstrap(): Promise<void> {
   try {
     if (isUsingDefaultJwtSecret) {
       console.warn(
-        "[AUTH] JWT_SECRET tidak ditemukan. Menggunakan secret development fallback. Ganti sebelum dipakai di production.",
+        "[AUTH] JWT_SECRET not found. Using development fallback secret. Replace before using in production.",
       );
     }
 
     if (env.mailFromEmail.endsWith("@smtp-brevo.com")) {
       console.warn(
-        `[BREVO] Sender aktif masih memakai alamat login SMTP (${env.mailFromEmail}). Ini sering lolos SMTP verify tetapi gagal deliver ke inbox. Pakai sender terverifikasi seperti domain bisnis Anda melalui SMTP_FROM atau MAIL_FROM_EMAIL.`,
+        `[BREVO] Active sender still uses the SMTP login address (${env.mailFromEmail}). This often passes SMTP verification but fails delivery to the inbox. Use a verified sender such as your business domain via SMTP_FROM or MAIL_FROM_EMAIL.`,
       );
     }
 

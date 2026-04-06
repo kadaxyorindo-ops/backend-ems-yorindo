@@ -66,6 +66,42 @@ function buildBulkApproveMessage(params: {
   return `${params.modifiedCount} registration(s) approved. ${params.queuedCount} QR ticket email(s) queued, ${params.failedQueueCount} need retry.`;
 }
 
+async function getRegistrationListItemById(registrationId: Types.ObjectId) {
+  const result = await Registration.aggregate([
+    {
+      $match: {
+        _id: registrationId,
+      },
+    },
+    {
+      $lookup: {
+        from: "participants",
+        let: { pId: "$participantId" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$pId"] } } },
+          {
+            $project: {
+              fullName: 1,
+              normalizedFullName: 1,
+              personalEmail: 1,
+              companyEmail: 1,
+            },
+          },
+        ],
+        as: "participant",
+      },
+    },
+    { $unwind: "$participant" },
+    {
+      $project: {
+        "participant.normalizedFullName": 0,
+      },
+    },
+  ]);
+
+  return result[0] ?? null;
+}
+
 export async function getRegistrations(
   eventId: string,
   query: GetRegistrationsQuery,
@@ -217,7 +253,7 @@ export async function approveRegistration(
   const ticketDelivery = await queueRegistrationTicketEmail(
     updatedRegistration._id.toString(),
   );
-  const registration = await Registration.findById(updatedRegistration._id).lean();
+  const registration = await getRegistrationListItemById(updatedRegistration._id);
 
   if (!registration) {
     throw new Error("Registration berhasil di-approve tetapi gagal dimuat ulang.");

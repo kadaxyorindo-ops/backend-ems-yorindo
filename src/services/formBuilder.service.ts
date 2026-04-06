@@ -137,6 +137,13 @@ export async function upsertFormBuilder(
   const event = await Event.findById(eventId);
   if (!event) return null;
 
+  let formName = event.registrationForm?.name ?? null;
+  if (payload.formName !== undefined) {
+    ensure(typeof payload.formName === "string", "Form name must be a string");
+    formName = payload.formName.trim();
+    ensure(formName.length > 0, "Form name is required");
+  }
+
   const currentVersion = event.registrationForm?.version ?? 1;
   const nextVersion = payload.publish ? currentVersion + 1 : currentVersion;
   const publishedAt = payload.publish
@@ -144,6 +151,7 @@ export async function upsertFormBuilder(
     : (event.registrationForm?.publishedAt ?? null);
 
   event.registrationForm = {
+    name: formName,
     version: nextVersion,
     fields,
     publishedAt,
@@ -161,6 +169,7 @@ export async function upsertFormBuilder(
       slug: event.slug,
     },
     eventId: event.id,
+    formName: event.registrationForm.name ?? null,
     version: event.registrationForm.version,
     publishedAt: event.registrationForm.publishedAt,
     fixedFields: fields.filter((field) => field.isFixed),
@@ -186,6 +195,7 @@ export async function getFormBuilderByEvent(
       slug: event.slug,
     },
     eventId: event._id.toString(),
+    formName: event.registrationForm?.name ?? null,
     version: event.registrationForm?.version ?? 1,
     publishedAt: event.registrationForm?.publishedAt ?? null,
     fixedFields: fields.filter((field) => field.isFixed),
@@ -211,6 +221,7 @@ export async function getFormBuilderBySlug(
       slug: event.slug,
     },
     eventId: event._id.toString(),
+    formName: event.registrationForm?.name ?? null,
     version: event.registrationForm?.version ?? 1,
     publishedAt: event.registrationForm?.publishedAt ?? null,
     fixedFields: fields.filter((field) => field.isFixed),

@@ -26,6 +26,7 @@ export interface FormBuilderFieldInput {
 }
 
 export interface FormBuilderUpsertRequest {
+  formName?: string;
   fixedFields?: FormBuilderFieldInput[];
   customQuestions?: FormBuilderFieldInput[];
   publish?: boolean;
@@ -43,6 +44,7 @@ export interface FormBuilderEventInfo {
 export interface FormBuilderView {
   event: FormBuilderEventInfo;
   eventId: string;
+  formName: string | null;
   version: number;
   publishedAt: Date | null;
   fixedFields: IRegistrationField[];

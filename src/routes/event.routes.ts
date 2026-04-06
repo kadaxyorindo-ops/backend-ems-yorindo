@@ -46,6 +46,7 @@ router.get(
 router.get(
   "/",
   requireAuth,
+  requireRole("super_admin", "event_operator"),
   validate(getAllEventsQuerySchema, "query"),
   handleGetAllEvents,
 );
@@ -54,7 +55,7 @@ router.get(
 router.post(
   "/",
   requireAuth,
-  requireRole("super_admin", "admin"),
+  requireRole("super_admin", "event_operator"),
   validate(createEventBodySchema, "body"),
   handleCreateEvent,
 );
@@ -63,7 +64,7 @@ router.post(
 router.patch(
   "/:id",
   requireAuth,
-  requireRole("super_admin", "admin"),
+  requireRole("super_admin", "event_operator"),
   validate(eventParamsSchema, "params"),
   validate(updateEventBodySchema, "body"),
   handleUpdateEvent,
@@ -73,7 +74,7 @@ router.patch(
 router.delete(
   "/:id",
   requireAuth,
-  requireRole("super_admin", "admin"),
+  requireRole("super_admin", "event_operator"),
   validate(eventParamsSchema, "params"),
   handleDeleteEvent,
 );

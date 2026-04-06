@@ -10,57 +10,148 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+// Yorindo Communication logo — base64 embedded so the email works
+// without a publicly hosted image URL. In production, replace with a CDN URL.
+const YORINDO_LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAABAAAAAFACAMAAAAVo/56AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAIiUExURS8qUgUADW4NfG4NfAUADQUADQ0gVioumA49nA84sw84swUADW4NfAUADQ49nA84sw84sw84sw49nAUADW4NfGwOfQUADQ86qA49nA84sw84s24NfG4NfAUADQUADQ84sw84sw49nAUADQUADQUADQ49nA49nG4NfHcQdYYWZw84swUADQ49ng49nA49nG4NfA49nA49nA49nZMaXA49nP5BALopOitig02WSf5BAO88DeY5FKgiSiZbi0WKV22yKNUyI5gcWBdEpj+BYFinNV6vLF+xKvk/BMgtL48ZYDt6aFCaRGOxKl+xKrIlQqEgUB9QmOE3GSFUlDFseBxMnQ49nA49nA49nA49nA49nA49nA47pA49nA49nA49nA49nA49nA49nA49nA49nA49nA49nA49nA49nA49nA49nA49nAUADf5BAP5BAOJpFqS2IF+xKl+xKv5BAP5BAPq8FdS5GpG0I1+xKl+xKv5BALW3Hv5BAHqzJl+xKl+xKl+xKv5BAF+xKg49nF+xKv5BAFekOF+xKvS7FWCxKv5BAP5BAP28FP+8FGkvbP+8FF+xKgUADQUADQUADQUADQUADQUADQUADQUADQUADQUADQUADQUADQUADQUADQUADQUADe1xCv5BAP+8FP+8FP51CF+xKv+8FEgekm4NfHEOeXQPd3gRcw84s1+xKv5BABI9rhA6sQ49nP5yCP+8FAUADf///8a70I0AAACndFJOUwAkmtNzFApC07oua8NLmun9/oFEsIsrGmzQXPRwHlv79JRTPTSFZurx/uFmNXNTVGFLXYuj0P7+/eX9/v7+/vz+/v7+/v0u+/7+/v7+Mv7+/vr+/v4jRMLj9PicvLPtx6wy6N6n6srEi9qMe0jI/fjqXlrt+fr68LuE+aP7VtH1KD09Spf1j/JxrLrZzhfZGpGrwtTc4byklcyEtJrs9IwLN7mYxSRZBFTktwAAAAFiS0dEtTMOWksAAAAJcEhZcwAALiMAAC4jAXilP3YAAAAHdElNRQfpCwMGICAynQbNAABA2UlEQVR42u19+2McxZVuNahLrRihXYmMxwk9yJqR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";
+
 function renderLoginOtpEmail(name: string, otp: string) {
   const safeName = escapeHtml(name);
   const expiryMinutes = env.otpExpiresInMinutes;
 
-  const subject = "Kode OTP Login Anda - Yorindo EMS";
+  const subject = "Your Login Verification Code \u2014 Yorindo EMS";
   const html = `<!doctype html>
-<html lang="id">
-  <body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px dashed #94a3b8;border-radius:24px;overflow:hidden;">
-            <tr>
-              <td style="padding:32px 32px 16px;">
-                <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:#64748b;font-weight:700;">
-                  Yorindo EMS
-                </p>
-                <h1 style="margin:0 0 12px;font-size:28px;line-height:1.2;color:#0f172a;">
-                  Kode OTP Login Anda
-                </h1>
-                <p style="margin:0;font-size:15px;line-height:1.8;color:#475569;">
-                  Halo ${safeName}, masukkan kode berikut untuk login ke dashboard EMS Yorindo.
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 32px 12px;">
-                <div style="border:1px solid #cbd5e1;border-radius:20px;background:#f8fafc;padding:24px;text-align:center;">
-                  <div style="font-family:'SFMono-Regular','Roboto Mono',monospace;font-size:36px;letter-spacing:10px;font-weight:700;color:#0f172a;">
-                    ${otp}
-                  </div>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 32px 32px;">
-                <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#475569;">
-                  Kode ini berlaku selama <strong>${expiryMinutes} menit</strong> dan hanya bisa dipakai satu kali.
-                </p>
-                <p style="margin:0;font-size:13px;line-height:1.7;color:#94a3b8;">
-                  Jika Anda tidak merasa meminta login, abaikan email ini.
-                </p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Login Verification \u2014 Yorindo EMS</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f1f5f9;">
+    <tr>
+      <td align="center" style="padding:48px 16px 40px;">
+
+        <!-- Card -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;">
+
+          <!-- Brand colour stripe (purple / blue / green / orange / yellow from Yorindo logo) -->
+          <tr>
+            <td style="padding:0;font-size:0;line-height:0;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="height:5px;background-color:#6B3FA0;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#2B5EAB;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#43B049;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#EA4C1B;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#F5A623;font-size:1px;line-height:1px;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding:32px 40px 24px;border-bottom:1px solid #f1f5f9;">
+              <img src="data:image/png;base64,${YORINDO_LOGO_B64}" alt="Yorindo Communication" width="200" style="display:block;width:200px;max-width:200px;height:auto;border:0;" />
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 40px 8px;">
+
+              <p style="margin:0 0 12px;font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#64748b;line-height:1;">
+                Login Verification
+              </p>
+
+              <h1 style="margin:0 0 14px;font-size:24px;font-weight:700;line-height:1.25;color:#0f172a;">
+                Your Verification Code
+              </h1>
+
+              <p style="margin:0 0 28px;font-size:15px;line-height:1.8;color:#475569;">
+                Hi <strong style="color:#0f172a;">${safeName}</strong>,<br>
+                use the code below to sign in to your Yorindo EMS dashboard.
+              </p>
+
+              <p style="margin:0 0 10px;font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#64748b;line-height:1;">
+                6-Digit Code
+              </p>
+
+              <!-- Individual digit boxes \u2014 mirrors the OtpInput on the login page -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  ${otp.split("").map(digit => `<td style="width:52px;height:64px;border:1.5px solid #1a40a8;border-radius:10px;background-color:#f8faff;text-align:center;vertical-align:middle;font-family:'Courier New',Courier,monospace;font-size:30px;font-weight:700;color:#0c1b45;">${digit}</td><td style="width:7px;font-size:1px;line-height:1px;">&nbsp;</td>`).join("")}
+                </tr>
+              </table>
+
+              <!-- Expiry -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px;">
+                <tr>
+                  <td style="background-color:#f8fafc;border-left:3px solid #1a40a8;border-radius:4px;padding:12px 16px;">
+                    <p style="margin:0;font-size:13px;line-height:1.7;color:#475569;">
+                      This code expires in <strong style="color:#0f172a;">${expiryMinutes} minutes</strong> and can only be used once.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Security note -->
+          <tr>
+            <td style="padding:0 40px 28px;">
+              <p style="margin:0;font-size:13px;line-height:1.7;color:#94a3b8;">
+                Never share this code with anyone \u2014 including Yorindo staff. We will never ask for your OTP.<br>
+                If you did not request this, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="border-top:1px solid #f1f5f9;padding:18px 40px;background-color:#f8fafc;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td>
+                    <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.6;">
+                      Sent to the email address registered with Yorindo EMS.
+                    </p>
+                  </td>
+                  <td align="right" style="vertical-align:middle;white-space:nowrap;">
+                    <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#cbd5e1;">Yorindo EMS</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Bottom colour stripe -->
+          <tr>
+            <td style="padding:0;font-size:0;line-height:0;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="height:5px;background-color:#6B3FA0;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#2B5EAB;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#43B049;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#EA4C1B;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#F5A623;font-size:1px;line-height:1px;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
 </html>`;
-  const text = `Halo ${name}, kode OTP login Anda adalah ${otp}. Kode berlaku ${expiryMinutes} menit.`;
+  const text = `Hi ${name}, your Yorindo EMS login code is: ${otp}. It expires in ${expiryMinutes} minutes. Never share this code with anyone.`;
 
   return { subject, html, text };
 }

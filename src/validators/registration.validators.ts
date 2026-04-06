@@ -65,3 +65,10 @@ export const rejectBodySchema = z.object({
 });
 
 export type RejectBody = z.infer<typeof rejectBodySchema>;
+
+/** Body for PATCH .../bulk-reject — requires at least one registration ID. */
+export const bulkRejectBodySchema = z.object({
+  ids: z.array(objectIdSchema).min(1, "At least one registration ID is required"),
+});
+
+export type BulkRejectBody = z.infer<typeof bulkRejectBodySchema>;

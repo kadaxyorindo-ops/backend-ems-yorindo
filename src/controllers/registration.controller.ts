@@ -19,6 +19,7 @@ import type {
   RegistrationParams,
   GetRegistrationsQuery,
   BulkApproveBody,
+  BulkRejectBody,
   RejectBody,
 } from "../validators/registration.validators.js";
 import {
@@ -27,6 +28,7 @@ import {
   approveRegistration,
   rejectRegistration,
   bulkApproveRegistrations,
+  bulkRejectRegistrations,
   rejectAllPending,
 } from "../services/registration.service.js";
 
@@ -163,6 +165,28 @@ export async function handleRejectAllPending(
 
     const result = await rejectAllPending(eventId, userId);
     sendSuccess(res, 200, `${result.modifiedCount} pending registration(s) rejected successfully`, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /events/:eventId/registrations/bulk-reject
+ * Rejects selected pending registrations in a single DB operation.
+ * Non-pending IDs in the list are silently skipped.
+ */
+export async function handleBulkRejectRegistrations(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { eventId } = res.locals.parsed.params as EventIdParams;
+    const { ids }     = res.locals.parsed.body   as BulkRejectBody;
+    const userId       = req.auth!.sub;
+
+    const result = await bulkRejectRegistrations(eventId, ids, userId);
+    sendSuccess(res, 200, `${result.modifiedCount} registration(s) rejected successfully`, result);
   } catch (error) {
     next(error);
   }

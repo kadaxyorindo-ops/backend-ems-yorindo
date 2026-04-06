@@ -27,6 +27,7 @@ export interface AuthenticatedUser {
   role: string;
   organizationName: string | null;
   lastLoginAt: string | null;
+  permissions: string[];
 }
 
 export interface RequestLoginOtpResult {
@@ -65,6 +66,7 @@ function toUserResponse(user: {
   role: string;
   organizationName: string | null;
   lastLoginAt: Date | null;
+  permissions: string[];
 }): AuthenticatedUser {
   return {
     id: user.id,
@@ -73,6 +75,10 @@ function toUserResponse(user: {
     role: user.role,
     organizationName: user.organizationName,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    // super_admin bypasses permission checks at the middleware level.
+    // We still return the array here (it will be [] for super_admin) so the
+    // frontend receives a consistent shape regardless of role.
+    permissions: user.permissions ?? [],
   };
 }
 
@@ -214,10 +220,15 @@ export async function verifyLoginOtp(
   user.lastLoginAt = new Date();
   await user.save();
 
+  // Permissions are baked into the JWT at login time.
+  // If super_admin changes a user's permissions, the change takes effect on
+  // that user's next login (when a fresh token is issued). For an internal
+  // staff tool this tradeoff is acceptable — no need for token revocation.
   const token = signAccessToken({
     userId: user.id,
     email: user.email,
     role: user.role,
+    permissions: user.permissions ?? [],
   });
 
   void AuditLog.create({

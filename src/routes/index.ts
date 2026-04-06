@@ -10,13 +10,14 @@
 
 import { Router } from "express";
 import eventRouter from "./event.routes.ts";
+import userRouter from "./user.routes.ts";
 
 const apiRouter = Router();
 
 apiRouter.use("/events", eventRouter);
+apiRouter.use("/users", userRouter);
 
 // Future routers go here:
 // apiRouter.use("/registrations", registrationRouter);
-// apiRouter.use("/users", userRouter);
 
 export default apiRouter;

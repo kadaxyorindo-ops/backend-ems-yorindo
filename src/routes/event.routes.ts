@@ -30,36 +30,34 @@ import registrationRouter from "./registration.routes.js";
 
 const router = Router();
 
-// GET — all authenticated staff can view
+// All event routes are restricted to super_admin and event_operator
 router.get("/",
   requireAuth,
+  requireRole("super_admin", "event_operator"),
   validate(getAllEventsQuerySchema, "query"),
   handleGetAllEvents,
 );
 
-// POST — only admin and above can create
 router.post("/",
   requireAuth,
-  requireRole("super_admin", "admin"),
+  requireRole("super_admin", "event_operator"),
   validate(createEventBodySchema, "body"),
   handleCreateEvent,
 );
 
-// PATCH — only admin and above can update
 router.patch("/:id",
   requireAuth,
-  requireRole("super_admin", "admin"),
+  requireRole("super_admin", "event_operator"),
   validate(eventParamsSchema, "params"),
   validate(updateEventBodySchema, "body"),
   handleUpdateEvent,
 );
 
-// DELETE — only admin and above can cancel
 router.delete("/:id",
   requireAuth,
-  requireRole("super_admin", "admin"),
+  requireRole("super_admin", "event_operator"),
   validate(eventParamsSchema, "params"),
-  handleDeleteEvent,  // no body validation needed anymore
+  handleDeleteEvent,
 );
 
 // Nested router — handles all /events/:eventId/registrations/* endpoints.

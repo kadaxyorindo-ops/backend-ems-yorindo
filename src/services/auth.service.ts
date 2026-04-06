@@ -90,15 +90,15 @@ export async function requestLoginOtp(
   const user = await User.findOne({ email });
 
   if (!user) {
-    throw new Error("Email tersebut belum terdaftar sebagai akun staf EMS.");
+    throw new Error("That email is not registered as an EMS staff account.");
   }
 
   if (!user.isActive) {
-    throw new Error("Akun Anda sedang nonaktif. Silakan hubungi administrator.");
+    throw new Error("Your account is inactive. Please contact the administrator.");
   }
 
   if (!ensureSystemRole(user.role)) {
-    throw new Error("Email ini tidak memiliki akses ke dashboard internal.");
+    throw new Error("This email does not have access to the internal dashboard.");
   }
 
   const latestOtp = await Otp.findOne({
@@ -116,7 +116,7 @@ export async function requestLoginOtp(
 
     if (remainingCooldown > 0) {
       throw new Error(
-        `Kode baru bisa dikirim ulang dalam ${remainingCooldown} detik.`,
+        `A new code can be sent again in ${remainingCooldown} seconds.`,
       );
     }
   }
@@ -150,8 +150,8 @@ export async function requestLoginOtp(
     await Otp.updateOne({ _id: otpRecord._id }, { $set: { isUsed: true } });
     throw new Error(
       error instanceof Error
-        ? `Gagal mengirim email OTP: ${error.message}`
-        : "Gagal mengirim email OTP.",
+        ? `Failed to send OTP email: ${error.message}`
+        : "Failed to send OTP email.",
     );
   }
 
@@ -171,7 +171,7 @@ export async function verifyLoginOtp(
   const user = await User.findOne({ email });
 
   if (!user || !user.isActive || !ensureSystemRole(user.role)) {
-    throw new Error("Akun login tidak valid untuk dashboard EMS.");
+    throw new Error("Login account is not valid for the EMS dashboard.");
   }
 
   const otpRecord = await Otp.findOne({
@@ -181,13 +181,13 @@ export async function verifyLoginOtp(
   }).sort({ createdAt: -1 });
 
   if (!otpRecord) {
-    throw new Error("Kode OTP tidak ditemukan. Silakan minta kode baru.");
+    throw new Error("OTP code not found. Please request a new code.");
   }
 
   if (otpRecord.expiresAt.getTime() <= Date.now()) {
     otpRecord.isUsed = true;
     await otpRecord.save();
-    throw new Error("Kode OTP sudah kedaluwarsa. Silakan minta kode baru.");
+    throw new Error("OTP code has expired. Please request a new code.");
   }
 
   const isMatch = await bcrypt.compare(code, otpRecord.otpHash);
@@ -203,14 +203,14 @@ export async function verifyLoginOtp(
 
     if (otpRecord.isUsed) {
       throw new Error(
-        "Kode OTP salah terlalu banyak kali. Silakan minta kode baru.",
+        "OTP code entered incorrectly too many times. Please request a new code.",
       );
     }
 
     throw new Error(
-      `Kode OTP tidak sesuai. Sisa percobaan ${
+      `OTP code is incorrect. ${
         env.otpMaxAttempts - otpRecord.attempts
-      } kali.`,
+      } attempts remaining.`,
     );
   }
 
@@ -256,7 +256,7 @@ export async function getAuthenticatedUser(userId: string) {
   const user = await User.findById(userId);
 
   if (!user || !user.isActive || !ensureSystemRole(user.role)) {
-    throw new Error("Pengguna tidak ditemukan atau tidak lagi aktif.");
+    throw new Error("User not found or no longer active.");
   }
 
   return toUserResponse(user);

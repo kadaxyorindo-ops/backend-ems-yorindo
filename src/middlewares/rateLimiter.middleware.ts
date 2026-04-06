@@ -10,7 +10,7 @@ export const requestOtpLimiter = rateLimit({
     sendError(
       res,
       429,
-      "Terlalu banyak permintaan OTP. Coba lagi dalam satu menit.",
+      "Too many OTP requests. Please try again in one minute.",
     ),
 });
 
@@ -23,6 +23,6 @@ export const verifyOtpLimiter = rateLimit({
     sendError(
       res,
       429,
-      "Terlalu banyak percobaan verifikasi OTP. Coba lagi beberapa menit lagi.",
+      "Too many OTP verification attempts. Please try again in a few minutes.",
     ),
 });

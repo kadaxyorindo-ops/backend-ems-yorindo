@@ -53,8 +53,9 @@ export function requirePermission(permission: Permission) {
       return sendError(res, 401, "Access denied. Please log in again.");
     }
 
-    // super_admin is never restricted by the permission array
-    if (req.auth.role === "super_admin") {
+    // super_admin and admin are never restricted by the permission array.
+    // admin is still blocked from user management routes via requireRole("super_admin").
+    if (req.auth.role === "super_admin" || req.auth.role === "admin") {
       return next();
     }
 

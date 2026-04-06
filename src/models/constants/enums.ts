@@ -60,6 +60,7 @@ export const STATUS = {
    */
   USER_ROLE: [
     "super_admin",
+    "admin",
     "event_operator",
     "communication_operator",
     "survey_analyst",
@@ -73,13 +74,15 @@ export const STATUS = {
    * record-keeping values in other collections, but must never log into
    * the staff dashboard.
    *
-   * super_admin            → full access, user management
+   * super_admin            → full access including user management
+   * admin                  → full feature access, but no user management
    * event_operator         → event and registration management
    * communication_operator → communication and email blast
    * survey_analyst         → survey and analytics (future — role exists, module not yet built)
    */
   SYSTEM_ROLE: [
     "super_admin",
+    "admin",
     "event_operator",
     "communication_operator",
     "survey_analyst",
@@ -164,8 +167,8 @@ export const STATUS = {
    *   analytics:view      → access analytics dashboards and reports
    *
    * Rules:
-   *  - super_admin always bypasses permission checks — do NOT add them to this enum.
-   *  - users:* is NOT in this enum — user management is super_admin-only, hardcoded in middleware.
+   *  - super_admin and admin always bypass permission checks — do NOT add them to this enum.
+   *  - users:* is NOT in this enum — user management is super_admin-only, hardcoded in routes.
    *  - Survey & Analytics codes are defined here but excluded from the active
    *    permission-assignment UI until the module is implemented.
    */

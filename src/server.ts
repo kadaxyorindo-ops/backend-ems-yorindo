@@ -4,6 +4,11 @@ import app from "./app.ts";
 import { connectDB, registerDBListeners } from "./config/db.ts";
 import { verifyBrevoSMTP } from "./config/brevo.ts";
 import { env, isUsingDefaultJwtSecret } from "./config/env.ts";
+import {
+  startEmailCampaignConsumer,
+  verifyEmailQueueConnection,
+} from "./services/email-queue.service.ts";
+import { processQueuedCommunicationCampaign } from "./services/communication.service.ts";
 
 const port = env.port;
 
@@ -39,7 +44,8 @@ function logServerReady(portNumber: number): void {
 
   console.log(`  ➜  Health:  ${localUrl}health`);
   console.log(`  ➜  DB:      ${localUrl}db-health`);
-  console.log(`  ➜  Brevo:   ${localUrl}brevo-health\n`);
+  console.log(`  ➜  Brevo:   ${localUrl}brevo-health`);
+  console.log(`  ➜  Queue:   ${localUrl}queue-health\n`);
 }
 
 async function checkBrevoOnStartup(): Promise<void> {
@@ -54,6 +60,21 @@ async function checkBrevoOnStartup(): Promise<void> {
 
   console.warn(
     `[BREVO] SMTP check failed: ${result.message}${result.error ? ` | ${result.error}` : ""}`,
+  );
+}
+
+async function checkEmailQueueOnStartup(): Promise<void> {
+  const result = await verifyEmailQueueConnection();
+
+  if (result.ok) {
+    console.log(
+      `[QUEUE] RabbitMQ verified successfully. URL: ${result.url} | Queue: ${result.queueName} | Consumer started: ${result.consumerStarted ? "yes" : "no"}`,
+    );
+    return;
+  }
+
+  console.warn(
+    `[QUEUE] RabbitMQ check failed: ${result.error ?? "Unknown RabbitMQ error."}`,
   );
 }
 
@@ -77,9 +98,18 @@ async function bootstrap(): Promise<void> {
     // Register connection lifecycle listeners + graceful shutdown
     registerDBListeners();
 
+    try {
+      await startEmailCampaignConsumer(async (job) => {
+        await processQueuedCommunicationCampaign(job.campaignId);
+      });
+    } catch (error) {
+      console.warn("[QUEUE] Email consumer failed to start:", error);
+    }
+
     // Start Express server
     app.listen(port, () => {
       void checkBrevoOnStartup();
+      void checkEmailQueueOnStartup();
       logServerReady(port);
     });
   } catch (error) {

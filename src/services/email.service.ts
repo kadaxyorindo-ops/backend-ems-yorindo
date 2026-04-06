@@ -162,10 +162,7 @@ export async function sendLoginOtpEmail(params: {
   otp: string;
 }) {
   const { subject, html, text } = renderLoginOtpEmail(params.name, params.otp);
-  const transporter = createBrevoTransporter();
-
-  const result = await transporter.sendMail({
-    from: `"${env.mailFromName}" <${env.mailFromEmail}>`,
+  const result = await sendEmailMessage({
     to: params.to,
     subject,
     html,
@@ -180,6 +177,22 @@ export async function sendLoginOtpEmail(params: {
     rejected: result.rejected,
     response: result.response,
   });
+}
+
+export async function sendEmailMessage(params: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}) {
+  const transporter = createBrevoTransporter();
+  const result = await transporter.sendMail({
+    from: `"${env.mailFromName}" <${env.mailFromEmail}>`,
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+    text: params.text,
+  });
 
   if (Array.isArray(result.rejected) && result.rejected.length > 0) {
     throw new Error(
@@ -190,4 +203,43 @@ export async function sendLoginOtpEmail(params: {
   if (Array.isArray(result.accepted) && result.accepted.length === 0) {
     throw new Error("SMTP did not accept the message for delivery.");
   }
+
+  return result;
+}
+
+export async function sendCampaignEmail(params: {
+  recipients: Array<{ email: string; name: string }>;
+  subject: string;
+  html: string;
+  text: string;
+}) {
+  const uniqueRecipients = Array.from(
+    new Map(params.recipients.map((recipient) => [recipient.email, recipient])).values(),
+  );
+  const failures: Array<{ email: string; reason: string }> = [];
+  let successCount = 0;
+
+  for (const recipient of uniqueRecipients) {
+    try {
+      await sendEmailMessage({
+        to: recipient.email,
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+      });
+      successCount += 1;
+    } catch (error) {
+      failures.push({
+        email: recipient.email,
+        reason:
+          error instanceof Error ? error.message : "Unknown SMTP delivery error.",
+      });
+    }
+  }
+
+  return {
+    successCount,
+    failureCount: failures.length,
+    failures,
+  };
 }

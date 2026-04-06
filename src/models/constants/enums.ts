@@ -28,12 +28,15 @@ export const STATUS = {
   /**
    * Lifecycle states of an Event document.
    *
-   * draft      → created but not yet visible to the public
-   * published  → open for registration
-   * closed     → registration window has ended; event may have occurred
-   * cancelled  → event will not happen; registrations should be voided
+   * draft        → created but not yet visible to the public, participant can't register yet
+   * upcoming     → Event is published, participant can't register yet
+   * registration → Event is published, participant can register
+   * ongoing      → Event is ongoing, participant can still register on the spot 
+   * done         → Event is finished, can't register
+   * cancelled    → event will not happen; registrations should be voided
+   * 
    */
-  EVENT: ["draft", "published", "closed", "cancelled"] as const,
+  EVENT: ["draft", "upcoming", "registration", "ongoing", "done", "cancelled"] as const,
 
   /**
    * Lifecycle states of a Registration document.

@@ -1,14 +1,16 @@
 import "dotenv/config";
 import { networkInterfaces } from "node:os";
 import app from "./app.ts";
-import { connectDB, registerDBListeners } from "./config/db.ts";
 import { verifyBrevoSMTP } from "./config/brevo.ts";
+import { connectDB, registerDBListeners } from "./config/db.ts";
 import { env, isUsingDefaultJwtSecret } from "./config/env.ts";
 import {
-  startEmailCampaignConsumer,
+  startEmailQueueConsumer,
   verifyEmailQueueConnection,
+  type EmailQueueJob,
 } from "./services/email-queue.service.ts";
 import { processQueuedCommunicationCampaign } from "./services/communication.service.ts";
+import { processQueuedRegistrationTicketEmail } from "./services/registration-ticket.service.ts";
 
 const port = env.port;
 
@@ -17,7 +19,9 @@ function getNetworkUrls(portNumber: number): string[] {
   const urls: string[] = [];
 
   for (const list of Object.values(nets)) {
-    if (!list) continue;
+    if (!list) {
+      continue;
+    }
 
     for (const item of list) {
       if (item.family === "IPv4" && !item.internal) {
@@ -46,6 +50,14 @@ function logServerReady(portNumber: number): void {
   console.log(`  ➜  DB:      ${localUrl}db-health`);
   console.log(`  ➜  Brevo:   ${localUrl}brevo-health`);
   console.log(`  ➜  Queue:   ${localUrl}queue-health\n`);
+}
+
+function processQueuedEmailJob(job: EmailQueueJob) {
+  if (job.type === "communication-campaign") {
+    return processQueuedCommunicationCampaign(job.campaignId);
+  }
+
+  return processQueuedRegistrationTicketEmail(job.registrationId);
 }
 
 async function checkBrevoOnStartup(): Promise<void> {
@@ -92,21 +104,17 @@ async function bootstrap(): Promise<void> {
       );
     }
 
-    // Connect to MongoDB
     await connectDB();
-
-    // Register connection lifecycle listeners + graceful shutdown
     registerDBListeners();
 
     try {
-      await startEmailCampaignConsumer(async (job) => {
-        await processQueuedCommunicationCampaign(job.campaignId);
+      await startEmailQueueConsumer(async (job) => {
+        await processQueuedEmailJob(job);
       });
     } catch (error) {
       console.warn("[QUEUE] Email consumer failed to start:", error);
     }
 
-    // Start Express server
     app.listen(port, () => {
       void checkBrevoOnStartup();
       void checkEmailQueueOnStartup();

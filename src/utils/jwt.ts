@@ -9,6 +9,13 @@ export interface AuthTokenPayload extends JwtPayload {
   type: "access";
 }
 
+export interface RegistrationTicketPayload extends JwtPayload {
+  sub: string;
+  eventId: string;
+  qrCode: string;
+  type: "registration_ticket";
+}
+
 export function signAccessToken(payload: {
   userId: string;
   email: string;
@@ -34,6 +41,24 @@ export function signAccessToken(payload: {
   );
 }
 
+export function signRegistrationTicket(payload: {
+  registrationId: string;
+  eventId: string;
+  qrCode: string;
+}) {
+  return jwt.sign(
+    {
+      eventId: payload.eventId,
+      qrCode: payload.qrCode,
+      type: "registration_ticket",
+    },
+    env.jwtSecret,
+    {
+      subject: payload.registrationId,
+    },
+  );
+}
+
 export function verifyAccessToken(token: string): AuthTokenPayload {
   const decoded = jwt.verify(token, env.jwtSecret);
 
@@ -52,4 +77,25 @@ export function verifyAccessToken(token: string): AuthTokenPayload {
   }
 
   return decoded as AuthTokenPayload;
+}
+
+export function verifyRegistrationTicket(
+  token: string,
+): RegistrationTicketPayload {
+  const decoded = jwt.verify(token, env.jwtSecret);
+
+  if (typeof decoded === "string") {
+    throw new Error("Invalid ticket payload");
+  }
+
+  if (
+    typeof decoded.sub !== "string" ||
+    typeof decoded.eventId !== "string" ||
+    typeof decoded.qrCode !== "string" ||
+    decoded.type !== "registration_ticket"
+  ) {
+    throw new Error("Invalid ticket payload");
+  }
+
+  return decoded as RegistrationTicketPayload;
 }

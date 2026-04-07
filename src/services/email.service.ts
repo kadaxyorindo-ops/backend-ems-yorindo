@@ -176,6 +176,7 @@ export async function sendEmailMessage(params: {
   subject: string;
   html: string;
   text: string;
+  attachments?: Array<{ filename: string; content: Buffer; cid: string }>;
 }) {
   const transporter = createBrevoTransporter();
   const result = await transporter.sendMail({
@@ -184,6 +185,7 @@ export async function sendEmailMessage(params: {
     subject: params.subject,
     html: params.html,
     text: params.text,
+    attachments: params.attachments,
   });
 
   if (Array.isArray(result.rejected) && result.rejected.length > 0) {

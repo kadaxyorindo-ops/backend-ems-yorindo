@@ -2,9 +2,19 @@ import amqp from "amqplib";
 import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
 import { env } from "../config/env.ts";
 
-type EmailQueueJob = {
+export type CommunicationCampaignEmailJob = {
+  type: "communication-campaign";
   campaignId: string;
 };
+
+export type RegistrationTicketEmailJob = {
+  type: "registration-ticket";
+  registrationId: string;
+};
+
+export type EmailQueueJob =
+  | CommunicationCampaignEmailJob
+  | RegistrationTicketEmailJob;
 
 type EmailQueueHealth = {
   ok: boolean;
@@ -77,7 +87,7 @@ async function ensureQueueChannel() {
       queueChannel = null;
       consumerStarted = false;
       lastQueueError =
-        'Koneksi RabbitMQ terputus. Pastikan broker tetap berjalan.';
+        "Koneksi RabbitMQ terputus. Pastikan broker tetap berjalan.";
       console.warn("[QUEUE] RabbitMQ connection closed.");
     });
 
@@ -101,16 +111,32 @@ function parseJobMessage(message: ConsumeMessage): EmailQueueJob {
   const rawPayload = message.content.toString("utf8");
   const parsedPayload = JSON.parse(rawPayload) as Partial<EmailQueueJob>;
 
-  if (!parsedPayload.campaignId || typeof parsedPayload.campaignId !== "string") {
-    throw new Error("Queue payload campaignId tidak valid.");
+  if (
+    parsedPayload.type === "communication-campaign" &&
+    typeof parsedPayload.campaignId === "string" &&
+    parsedPayload.campaignId.trim()
+  ) {
+    return {
+      type: "communication-campaign",
+      campaignId: parsedPayload.campaignId,
+    };
   }
 
-  return {
-    campaignId: parsedPayload.campaignId,
-  };
+  if (
+    parsedPayload.type === "registration-ticket" &&
+    typeof parsedPayload.registrationId === "string" &&
+    parsedPayload.registrationId.trim()
+  ) {
+    return {
+      type: "registration-ticket",
+      registrationId: parsedPayload.registrationId,
+    };
+  }
+
+  throw new Error("Queue payload email job tidak valid.");
 }
 
-export async function enqueueCommunicationCampaignJob(job: EmailQueueJob) {
+async function enqueueEmailJob(job: EmailQueueJob) {
   const channel = await ensureQueueChannel();
   const wasQueued = channel.sendToQueue(
     env.emailQueueName,
@@ -126,6 +152,24 @@ export async function enqueueCommunicationCampaignJob(job: EmailQueueJob) {
       "RabbitMQ queue sedang penuh. Coba kirim ulang beberapa saat lagi.";
     throw new Error(lastQueueError);
   }
+}
+
+export async function enqueueCommunicationCampaignJob(job: {
+  campaignId: string;
+}) {
+  await enqueueEmailJob({
+    type: "communication-campaign",
+    campaignId: job.campaignId,
+  });
+}
+
+export async function enqueueRegistrationTicketJob(job: {
+  registrationId: string;
+}) {
+  await enqueueEmailJob({
+    type: "registration-ticket",
+    registrationId: job.registrationId,
+  });
 }
 
 export async function verifyEmailQueueConnection(): Promise<EmailQueueHealth> {
@@ -165,7 +209,7 @@ export function getEmailQueueHealthSnapshot(): EmailQueueHealth {
   };
 }
 
-export async function startEmailCampaignConsumer(
+export async function startEmailQueueConsumer(
   onMessage: (job: EmailQueueJob) => Promise<void>,
 ) {
   if (consumerStarted) {
@@ -195,9 +239,11 @@ export async function startEmailCampaignConsumer(
   consumerStarted = true;
   lastQueueError = null;
   console.log(
-    `[QUEUE] Email consumer ready on queue "${env.emailQueueName}" via ${env.rabbitmqUrl}.`,
+    `[QUEUE] Email queue consumer ready on queue "${env.emailQueueName}" via ${env.rabbitmqUrl}.`,
   );
 }
+
+export const startEmailCampaignConsumer = startEmailQueueConsumer;
 
 export async function closeEmailQueueConnection() {
   await queueChannel?.close().catch(() => undefined);

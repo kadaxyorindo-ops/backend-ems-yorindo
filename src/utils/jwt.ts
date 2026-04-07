@@ -5,6 +5,7 @@ export interface AuthTokenPayload extends JwtPayload {
   sub: string;
   email: string;
   role: string;
+  permissions: string[];
   type: "access";
 }
 
@@ -12,6 +13,7 @@ export function signAccessToken(payload: {
   userId: string;
   email: string;
   role: string;
+  permissions: string[];
 }) {
   const options: SignOptions = {
     expiresIn: `${env.jwtExpiresInHours}h`,
@@ -21,6 +23,7 @@ export function signAccessToken(payload: {
     {
       email: payload.email,
       role: payload.role,
+      permissions: payload.permissions,
       type: "access",
     },
     env.jwtSecret,
@@ -42,6 +45,7 @@ export function verifyAccessToken(token: string): AuthTokenPayload {
     typeof decoded.sub !== "string" ||
     typeof decoded.email !== "string" ||
     typeof decoded.role !== "string" ||
+    !Array.isArray(decoded.permissions) ||
     decoded.type !== "access"
   ) {
     throw new Error("Invalid token payload");

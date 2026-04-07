@@ -40,3 +40,6 @@ export { SurveyResponse } from "./schemas/survey-response.schema.js";
 
 // --- Audit ---
 export { AuditLog } from "./schemas/audit-log.schema.js";
+
+// --- Communication ---
+export { CommunicationCampaign } from "./schemas/communication-campaign.schema.js";

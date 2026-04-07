@@ -23,6 +23,7 @@ import { randomUUID } from "crypto";
 import type {
   GetRegistrationsQuery,
   BulkApproveBody,
+  BulkRejectBody,
   RejectBody,
 } from "../validators/registration.validators.js";
 
@@ -257,11 +258,11 @@ export async function bulkApproveRegistrations(
       filter: {
         _id:     new Types.ObjectId(id),
         eventId: eventObjectId,
-        status:  "pending",
+        status:  "pending" as const,
       },
       update: {
         $set: {
-          status:                "approved",
+          status:                "approved" as const,
           "approval.approvedBy": new Types.ObjectId(userId),
           "approval.approvedAt": now,
           ticket:                buildTicket(),
@@ -281,6 +282,35 @@ export async function bulkApproveRegistrations(
 export async function rejectAllPending(eventId: string, userId: string) {
   const result = await Registration.updateMany(
     { eventId: new Types.ObjectId(eventId), status: "pending" },
+    {
+      $set: {
+        status:                "rejected",
+        "approval.rejectedBy": new Types.ObjectId(userId),
+        "approval.rejectedAt": new Date(),
+      },
+    },
+  );
+
+  return { modifiedCount: result.modifiedCount };
+}
+
+/**
+ * Bulk-rejects selected pending registrations in a single DB operation.
+ * Uses updateMany with $in — all records get the same update so bulkWrite
+ * is not needed (unlike bulk-approve which requires per-item QR codes).
+ * Non-pending registrations in the ID list are silently skipped.
+ */
+export async function bulkRejectRegistrations(
+  eventId: string,
+  ids: string[],
+  userId: string,
+) {
+  const result = await Registration.updateMany(
+    {
+      _id:     { $in: ids.map((id) => new Types.ObjectId(id)) },
+      eventId: new Types.ObjectId(eventId),
+      status:  "pending",
+    },
     {
       $set: {
         status:                "rejected",

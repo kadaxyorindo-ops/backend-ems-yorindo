@@ -58,15 +58,15 @@ async function seed(): Promise<void> {
     iManufaktur, iTekstil, iOtomotif, iPakaianJadi,
     iIT, iElektronik, iAlasKaki, iAkumulator, iAgribisnis,
   ] = await Industry.insertMany([
-    { name: "Manufaktur",              normalizedName: "manufaktur" },
-    { name: "Tekstil",                 normalizedName: "tekstil" },
-    { name: "Otomotif",                normalizedName: "otomotif" },
-    { name: "Industri Pakaian Jadi",   normalizedName: "industri pakaian jadi" },
-    { name: "Teknologi Informasi",     normalizedName: "teknologi informasi" },
-    { name: "Komponen Elektronik",     normalizedName: "komponen elektronik" },
-    { name: "Alas Kaki",               normalizedName: "alas kaki" },
-    { name: "Akumulator & Energi",     normalizedName: "akumulator & energi" },
-    { name: "Agribisnis",              normalizedName: "agribisnis" },
+    { name: "Manufacturing",            normalizedName: "manufacturing" },
+    { name: "Textile",                 normalizedName: "textile" },
+    { name: "Automotive",              normalizedName: "automotive" },
+    { name: "Garment Industry",        normalizedName: "garment industry" },
+    { name: "Information Technology",  normalizedName: "information technology" },
+    { name: "Electronic Components",   normalizedName: "electronic components" },
+    { name: "Footwear",                normalizedName: "footwear" },
+    { name: "Battery & Energy",        normalizedName: "battery & energy" },
+    { name: "Agribusiness",            normalizedName: "agribusiness" },
   ]);
   console.log("[SEED] Industries: 9");
 
@@ -102,8 +102,8 @@ async function seed(): Promise<void> {
     { name: "Supervisor",               normalizedName: "supervisor" },
     { name: "IT Manager",               normalizedName: "it manager" },
     { name: "IT Staff",                 normalizedName: "it staff" },
-    { name: "Kepala Divisi",            normalizedName: "kepala divisi" },
-    { name: "Asisten Manajer",          normalizedName: "asisten manajer" },
+    { name: "Division Head",             normalizedName: "division head" },
+    { name: "Junior Manager",           normalizedName: "junior manager" },
   ]);
   console.log("[SEED] Job Titles: 12");
 
@@ -149,24 +149,24 @@ async function seed(): Promise<void> {
   // -------------------------------------------------------------------------
   const [superAdmin, admin1, admin2] = await User.insertMany([
     {
-      name: "Ahmad Fauzi",
-      email: "ahmad.fauzi@yorindo.co.id",
+      name: "John Smith",
+      email: "john.smith@yorindo.co.id",
       role: "super_admin",
       organizationName: "PT. XYZ Operations",
       isActive: true,
       lastLoginAt: new Date("2025-10-23T08:00:00Z"),
     },
     {
-      name: "Siti Nurhaliza",
-      email: "siti.nurhaliza@yorindo.co.id",
+      name: "Sarah Johnson",
+      email: "sarah.johnson@yorindo.co.id",
       role: "admin",
       organizationName: "PT. XYZ Operations",
       isActive: true,
       lastLoginAt: new Date("2025-10-23T07:30:00Z"),
     },
     {
-      name: "Budi Santoso",
-      email: "budi.santoso@yorindo.co.id",
+      name: "Michael Chen",
+      email: "michael.chen@yorindo.co.id",
       role: "admin",
       organizationName: "PT. XYZ Operations",
       isActive: true,
@@ -189,74 +189,74 @@ async function seed(): Promise<void> {
 
   const formFields = [
     {
-      fieldId: fIdName, key: "full_name", label: "Nama Lengkap",
+      fieldId: fIdName, key: "full_name", label: "Full Name",
       type: "text" as const, order: 1, isFixed: true,
-      placeholder: "Masukkan nama lengkap Anda",
+      placeholder: "Enter your full name",
       validation: { required: true, minLength: 2, maxLength: 100 },
       isActive: true,
     },
     {
-      fieldId: fIdPhone, key: "phone", label: "No Handphone",
+      fieldId: fIdPhone, key: "phone", label: "Phone Number",
       type: "phone" as const, order: 2, isFixed: true,
       placeholder: "08xxxxxxxxxx",
       validation: { required: false },
       isActive: true,
     },
     {
-      fieldId: fIdCompEmail, key: "company_email", label: "Email Perusahaan",
+      fieldId: fIdCompEmail, key: "company_email", label: "Company Email",
       type: "email" as const, order: 3, isFixed: true,
-      placeholder: "nama@perusahaan.com",
+      placeholder: "name@company.com",
       validation: { required: false },
       isActive: true,
     },
     {
-      fieldId: fIdPersEmail, key: "personal_email", label: "Email Pribadi",
+      fieldId: fIdPersEmail, key: "personal_email", label: "Personal Email",
       type: "email" as const, order: 4, isFixed: false,
-      placeholder: "nama@gmail.com",
+      placeholder: "name@gmail.com",
       validation: { required: false },
       isActive: true,
     },
     {
-      fieldId: fIdDept, key: "department", label: "Departemen",
+      fieldId: fIdDept, key: "department", label: "Department",
       type: "radio" as const, order: 5, isFixed: false,
       options: [
         { value: "HR", label: "HR", isDefault: false },
         { value: "IT", label: "IT", isDefault: false },
         { value: "Finance", label: "Finance", isDefault: false },
         { value: "Operations", label: "Operations", isDefault: false },
-        { value: "Other", label: "Lainnya", isDefault: false },
+        { value: "Other", label: "Other", isDefault: false },
       ],
       validation: { required: false },
       isActive: true,
     },
     {
-      fieldId: fIdJabatan, key: "jabatan", label: "Jabatan",
+      fieldId: fIdJabatan, key: "jabatan", label: "Job Title",
       type: "text" as const, order: 6, isFixed: false,
       placeholder: "e.g. HR Manager",
       validation: { required: false, maxLength: 100 },
       isActive: true,
     },
     {
-      fieldId: fIdJenisLay, key: "jenis_layanan", label: "Jenis Layanan",
+      fieldId: fIdJenisLay, key: "jenis_layanan", label: "Type of Service",
       type: "text" as const, order: 7, isFixed: false,
-      placeholder: "e.g. Manufaktur",
+      placeholder: "e.g. Manufacturing",
       validation: { required: false },
       isActive: true,
     },
     {
-      fieldId: fIdAsal, key: "asal_kota", label: "Asal Kota",
+      fieldId: fIdAsal, key: "asal_kota", label: "City of Origin",
       type: "text" as const, order: 8, isFixed: false,
-      placeholder: "e.g. Purwakarta",
+      placeholder: "e.g. Jakarta",
       validation: { required: false },
       isActive: true,
     },
   ];
 
   const eventDoc = await Event.create({
-    title: "HR Forum Purwakarta – Oktober 2025",
+    title: "HR Forum Purwakarta – October 2025",
     description:
-      "Forum diskusi dan networking bagi para profesional HR di kawasan industri Purwakarta dan sekitarnya. " +
-      "Membahas tren ketenagakerjaan, regulasi terkini, dan praktik terbaik dalam manajemen SDM.",
+      "A discussion and networking forum for HR professionals in the Purwakarta industrial area and surrounding regions. " +
+      "Covering employment trends, the latest regulations, and best practices in human resources management.",
     category: "HR Forum",
     eventDate: new Date("2025-10-23T08:00:00+07:00"),
     location: "Hotel Sutan Raja Purwakarta, Jawa Barat",

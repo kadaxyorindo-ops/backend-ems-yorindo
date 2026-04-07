@@ -18,7 +18,7 @@ export async function getFormBuilderHandler(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { eventId } = req.params;
+    const eventId = req.params.eventId as string;
 
     if (!eventId || !isValidObjectId(eventId)) {
       sendError(res, 400, "Invalid eventId");

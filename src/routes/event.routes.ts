@@ -31,6 +31,7 @@ import {
 } from "../controllers/event.controller.ts";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.ts";
 import registrationRouter from "./registration.routes.js";
+import checkInRouter from "./checkin.routes.ts";
 
 const router = Router();
 
@@ -41,7 +42,8 @@ router.get("/stats", requireAuth, handleGetEventStats);
 // GET / — all authenticated staff can view the event list.
 router.get(
   "/",
-  // requireAuth,
+  requireAuth,
+  requireRole("super_admin", "event_operator"),
   validate(getAllEventsQuerySchema, "query"),
   handleGetAllEvents,
 );
@@ -49,8 +51,8 @@ router.get(
 // POST / — only admin and above can create events.
 router.post(
   "/",
-  // requireAuth,
-  // requireRole("super_admin", "admin"),
+  requireAuth,
+  requireRole("super_admin", "event_operator"),
   validate(createEventBodySchema, "body"),
   handleCreateEvent,
 );
@@ -59,7 +61,7 @@ router.post(
 router.patch(
   "/:id",
   requireAuth,
-  requireRole("super_admin", "admin"),
+  requireRole("super_admin", "event_operator"),
   validate(eventParamsSchema, "params"),
   validate(updateEventBodySchema, "body"),
   handleUpdateEvent,
@@ -69,12 +71,13 @@ router.patch(
 router.delete(
   "/:id",
   requireAuth,
-  requireRole("super_admin", "admin"),
+  requireRole("super_admin", "event_operator"),
   validate(eventParamsSchema, "params"),
   handleDeleteEvent,
 );
 
 // Nested router — handles all /events/:eventId/registrations/* endpoints.
 router.use("/:eventId/registrations", registrationRouter);
+router.use("/:eventId/check-ins", checkInRouter);
 
 export default router;

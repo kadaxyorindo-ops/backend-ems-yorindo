@@ -50,6 +50,79 @@ function buildMeta(groups: { _id: string; count: number }[]): RegistrationMeta {
   return meta;
 }
 
+const registrationSnapshotFallbackStage = {
+  $set: {
+    companySnapshot: {
+      $mergeObjects: [
+        { companyId: null, name: null },
+        { $ifNull: ["$companySnapshot", {}] },
+        {
+          companyId: {
+            $ifNull: [
+              "$companySnapshot.companyId",
+              "$participant.company.companyId",
+            ],
+          },
+          name: {
+            $ifNull: ["$companySnapshot.name", "$participant.company.name"],
+          },
+        },
+      ],
+    },
+    industrySnapshot: {
+      $mergeObjects: [
+        { refId: null, name: null },
+        { $ifNull: ["$industrySnapshot", {}] },
+        {
+          refId: {
+            $ifNull: [
+              "$industrySnapshot.refId",
+              "$participant.industry.refId",
+            ],
+          },
+          name: {
+            $ifNull: ["$industrySnapshot.name", "$participant.industry.name"],
+          },
+        },
+      ],
+    },
+    jobTitleSnapshot: {
+      $mergeObjects: [
+        { refId: null, name: null },
+        { $ifNull: ["$jobTitleSnapshot", {}] },
+        {
+          refId: {
+            $ifNull: [
+              "$jobTitleSnapshot.refId",
+              "$participant.jobTitle.refId",
+            ],
+          },
+          name: {
+            $ifNull: ["$jobTitleSnapshot.name", "$participant.jobTitle.name"],
+          },
+        },
+      ],
+    },
+    citySnapshot: {
+      $mergeObjects: [
+        { refId: null, name: null },
+        { $ifNull: ["$citySnapshot", {}] },
+        {
+          refId: {
+            $ifNull: [
+              "$citySnapshot.refId",
+              "$participant.city.refId",
+            ],
+          },
+          name: {
+            $ifNull: ["$citySnapshot.name", "$participant.city.name"],
+          },
+        },
+      ],
+    },
+  },
+};
+
 function buildBulkApproveMessage(params: {
   modifiedCount: number;
   queuedCount: number;
@@ -85,6 +158,10 @@ async function getRegistrationListItemById(registrationId: Types.ObjectId) {
               normalizedFullName: 1,
               personalEmail: 1,
               companyEmail: 1,
+              company: 1,
+              industry: 1,
+              jobTitle: 1,
+              city: 1,
             },
           },
         ],
@@ -92,6 +169,7 @@ async function getRegistrationListItemById(registrationId: Types.ObjectId) {
       },
     },
     { $unwind: "$participant" },
+    registrationSnapshotFallbackStage,
     {
       $project: {
         "participant.normalizedFullName": 0,
@@ -148,25 +226,30 @@ export async function getRegistrations(
     Registration.aggregate([
       { $match: baseMatch },
       {
-        $lookup: {
-          from: "participants",
-          let: { pId: "$participantId" },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$_id", "$$pId"] } } },
-            {
-              $project: {
-                fullName: 1,
-                normalizedFullName: 1,
-                personalEmail: 1,
-                companyEmail: 1,
-              },
+            $lookup: {
+              from: "participants",
+              let: { pId: "$participantId" },
+              pipeline: [
+                { $match: { $expr: { $eq: ["$_id", "$$pId"] } } },
+                {
+                  $project: {
+                    fullName: 1,
+                    normalizedFullName: 1,
+                    personalEmail: 1,
+                    companyEmail: 1,
+                    company: 1,
+                    industry: 1,
+                    jobTitle: 1,
+                    city: 1,
+                  },
+                },
+              ],
+              as: "participant",
             },
-          ],
-          as: "participant",
-        },
-      },
-      { $unwind: "$participant" },
-      ...searchStages,
+          },
+          { $unwind: "$participant" },
+          registrationSnapshotFallbackStage,
+          ...searchStages,
       {
         $facet: {
           items: [

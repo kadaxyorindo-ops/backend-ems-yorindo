@@ -6,10 +6,17 @@
  * (registrations, surveys, audit logs) references an event.
  *
  * Event lifecycle (status field):
- *   draft      → created by admin; form can be edited; not visible to public
- *   published  → open for registration; form is locked (snapshot on submit)
- *   closed     → registration window ended; event may have occurred
- *   cancelled  → event will not happen; all registrations should be voided
+ *   draft        → created by admin; form can be edited; not visible to public
+ *   upcoming     → Event is published, participant can't register yet
+ *   registration → Event is published, participant can register
+ *   ongoing      → Event is ongoing, participant can still register on the spot
+ *   done         → Event is finished, can't register
+ *   cancelled    → event will not happen; all registrations should be voided
+ *
+ * Industry coupling:
+ *   Each event belongs to exactly one industry (e.g. Healthcare, Technology).
+ *   Stored as a MasterSnapshot (refId + name) so the display name is preserved
+ *   even if the master Industry record is later renamed.
  *
  * Registration form:
  *   The form definition lives inside the event document as an embedded
@@ -29,6 +36,10 @@
  *   An event can optionally have one post-event survey (surveyId).
  *   The Survey document references back to the event via its own eventId.
  *   The surveyId here exists for convenience lookups from the event side.
+ *
+ * Note on maxCapacity:
+ *   Removed. The client confirmed they do not enforce a hard capacity limit —
+ *   participant count is controlled purely through the approval workflow.
  */
 
 import { Schema, model, Types } from "mongoose";
@@ -37,12 +48,14 @@ import type { EventStatus } from "../constants/enums.js";
 import { lowerTrim, safeTrim } from "../helpers/transformers.js";
 import { RegistrationFieldSchema } from "./sub/registration-field.schema.js";
 import type { IRegistrationField } from "./sub/registration-field.schema.js";
+import { MasterSnapshotSchema } from "./sub/master-snapshot.schema.js";
+import type { IMasterSnapshot } from "./sub/master-snapshot.schema.js";
 
 export interface IEvent {
-  /** URL-friendly slug for public registration links. */
-  slug: string;
-
   /** Event title displayed in the UI and communications (e.g. "Tech Expo 2025"). */
+  _id: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
   title: string;
 
   /**
@@ -61,6 +74,14 @@ export interface IEvent {
    */
   category: string | null;
 
+  /**
+   * The industry this event belongs to.
+   * Stored as a MasterSnapshot (refId + name) so the display name is preserved
+   * even if the master Industry record is later renamed.
+   * An event belongs to exactly one industry.
+   */
+  industry: IMasterSnapshot;
+
   /** Scheduled date and time of the event. */
   eventDate: Date;
 
@@ -70,16 +91,10 @@ export interface IEvent {
   /** Current lifecycle status of the event. */
   status: EventStatus;
 
-  /**
-   * Maximum number of attendees allowed to register.
-   * Null means no capacity limit is enforced.
-   * Application layer is responsible for checking this against
-   * the count of approved registrations before allowing new ones.
-   */
-  maxCapacity: number | null;
-
   /** The embedded registration form definition for this event. */
   registrationForm: {
+    /** Optional display name for the registration form. */
+    name: string | null;
     /**
      * Incremented each time the form is published.
      * Starts at 1. Frozen into Registration.formSnapshot.version on submit.
@@ -132,6 +147,13 @@ const EventSchema = new Schema<IEvent>(
       trim: true,
       default: null,
     },
+    // Each event is tightly coupled to exactly one industry.
+    // Using MasterSnapshotSchema keeps the display name stable even if the
+    // master Industry record is renamed after the event is created.
+    industry: {
+      type: MasterSnapshotSchema,
+      default: () => ({ refId: null, name: null }),
+    },
     eventDate: {
       type: Date,
       required: true,
@@ -147,12 +169,12 @@ const EventSchema = new Schema<IEvent>(
       enum: STATUS.EVENT,
       default: "draft",
     },
-    maxCapacity: {
-      type: Number,
-      min: 0,
-      default: null,
-    },
     registrationForm: {
+      name: {
+        type: String,
+        trim: true,
+        default: null,
+      },
       version: {
         type: Number,
         default: 1,
@@ -195,5 +217,11 @@ EventSchema.index({ status: 1, eventDate: -1 });
 
 // Category filtering — used in analytics and event browsing.
 EventSchema.index({ category: 1 });
+
+// Industry filtering — "show all events for this industry".
+EventSchema.index({ "industry.refId": 1 });
+
+// Slug uniqueness.
+EventSchema.index({ slug: 1 }, { unique: true });
 
 export const Event = model<IEvent>("Event", EventSchema);

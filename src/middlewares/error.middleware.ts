@@ -20,6 +20,17 @@ import type {
 import { ZodError } from "zod";
 import { sendError } from "../utils/apiResponse";
 
+type ErrorWithStatusCode = Error & { statusCode: number };
+
+function isErrorWithStatusCode(error: unknown): error is ErrorWithStatusCode {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "statusCode" in error &&
+      typeof (error as { statusCode?: unknown }).statusCode === "number",
+  );
+}
+
 export const errorHandler: ErrorRequestHandler = (
     err: unknown,
     _req: Request,
@@ -29,6 +40,12 @@ export const errorHandler: ErrorRequestHandler = (
     // Zod validation errors -> 422 with structured field errors
     if (err instanceof ZodError) {
         sendError(res, 422, "Validation failed", err.issues);
+        return;
+    }
+
+    // Custom errors with explicit statusCode (e.g. FormBuilderValidationError)
+    if (isErrorWithStatusCode(err)) {
+        sendError(res, err.statusCode, err.message);
         return;
     }
 

@@ -59,6 +59,46 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       survei_result
     } = req.body;
 
+    // validasi event di awal
+    const event = await Event.findById(event_id).lean();
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
+    }
+
+    console.log("MULAI CEK DUPLIKAT");
+
+    const queryKondisi = [];
+    if (email_perusahaan) queryKondisi.push({ companyEmail: email_perusahaan });
+    if (email_pribadi) queryKondisi.push({ personalEmail: email_pribadi });
+    if (no_hp) queryKondisi.push({ phone: no_hp });
+
+    if (queryKondisi.length > 0) {
+      const existingParticipants = await Participant.find({ $or: queryKondisi });
+      console.log(`1. Ditemukan ${existingParticipants.length} data participant dengan kontak yang sama di DB`);
+
+      for (const p of existingParticipants) {
+        // Cek registrasi pakai logika
+        const isAlreadyRegistered = await Registration.findOne({
+          eventId: event_id,
+          $or: [
+            { participantId: p._id },
+            { participantId: String(p._id) }
+          ]
+        });
+
+        if (isAlreadyRegistered) {
+          console.log("BLOKIR AKTIF: Data registrasi duplikat ditemukan!");
+          return res.status(409).json({ 
+            success: false, 
+            message: "Email atau nomor HP Anda sudah terdaftar untuk event ini." 
+          });
+        }
+      }
+    }
+    
+    console.log("AMAN: Tidak ada duplikat, lanjut simpan data baru...");
+
+    // lanjut proses simpan data jika aman
     const city = await City.findOneAndUpdate(
       { name: lokasi_perusahaan }, 
       { name: lokasi_perusahaan, normalizedName: lokasi_perusahaan.toLowerCase() }, 
@@ -82,7 +122,6 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       { name: jabatan, normalizedName: jabatan.toLowerCase() },
       { new: true, upsert: true }
     );
-
 
     const participant = await Participant.findOneAndUpdate(
       { companyEmail: email_perusahaan }, 
@@ -110,11 +149,7 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       { new: true, upsert: true }
     );
 
-    const event = await Event.findById(event_id).lean();
-    if (!event) {
-      return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
-    }
-
+    // simpan hasil survei
     const answersMap = buildCustomValueMap(survei_result);
 
     if (answersMap.size > 0) {
@@ -133,13 +168,13 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
         });
         
         await survey.save();
-        console.log("Survey Response berhasil disimpan ke MongoDB!");
       }
     }
 
+    console.log("SUKSES: Data baru berhasil disimpan!");
     return res.status(201).json({
       success: true,
-      message: "Proses Registrasi Berhasil Disimpan ke Semua Database!",
+      message: "Proses registrasi berhasil disimpan ke database!",
       data: {
         participant_id: participant._id,
         registration_id: registration._id 
@@ -147,7 +182,7 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
     });
 
   } catch (error: any) {
-    console.error("Error Registrasi:", error);
+    console.error("Error registrasi:", error);
     return res.status(500).json({ success: false, message: "Terjadi kesalahan server", error: error.message });
   }
 };

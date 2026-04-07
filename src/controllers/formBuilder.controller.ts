@@ -18,7 +18,7 @@ export async function getFormBuilderHandler(
   res: Response,
 ): Promise<Response> {
   try {
-    const { eventId } = req.params;
+    const eventId = req.params.eventId as string;
 
     if (!eventId || !isValidObjectId(eventId)) {
       return sendError(res, 400, "Invalid eventId");
@@ -40,7 +40,7 @@ export async function upsertFormBuilderHandler(
   res: Response,
 ): Promise<Response> {
   try {
-    const { eventId } = req.params;
+    const eventId = req.params.eventId as string;
     const payload = req.body as FormBuilderUpsertRequest;
 
     if (!eventId || !isValidObjectId(eventId)) {

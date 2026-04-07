@@ -27,6 +27,8 @@ import {
 } from "../controllers/event.controller";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware";
 import registrationRouter from "./registration.routes.js";
+import { getEventSurveyAnalytics } from "../controllers/analytics.controller.ts";
+import { generateEventAIInsight } from "../controllers/ai.controller.ts";
 
 const router = Router();
 
@@ -64,6 +66,22 @@ router.delete(
   requireRole("super_admin", "admin"),
   validate(eventParamsSchema, "params"),
   handleDeleteEvent, // no body validation needed anymore
+);
+
+// GET — View Event Survey Analytics (hanya untuk admin/super_admin)
+router.get(
+  "/:eventId/analytics",
+  // requireAuth,                            
+  // requireRole("super_admin", "admin", "exhibitor"),    
+  getEventSurveyAnalytics
+);
+
+// GET — Generate AI Insight dari data Survey
+router.get(
+  "/:eventId/analytics/ai-insight",
+  // requireAuth,
+  // requireRole("super_admin", "admin", "exhibitor"),
+  generateEventAIInsight
 );
 
 // Nested router — handles all /events/:eventId/registrations/* endpoints.

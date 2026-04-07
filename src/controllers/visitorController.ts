@@ -102,10 +102,14 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
 
     const registration = await Registration.findOneAndUpdate(
       { eventId: event_id, participantId: participant._id },
-      { 
-        eventId: event_id, 
-        participantId: participant._id, 
-        status: 'pending' 
+      {
+        eventId: event_id,
+        participantId: participant._id,
+        status: 'pending',
+        companySnapshot:  { companyId: company._id,  name: company.name },
+        industrySnapshot: { refId: industry._id,     name: industry.name },
+        jobTitleSnapshot: { refId: jobTitle._id,     name: jobTitle.name },
+        citySnapshot:     { refId: city._id,         name: city.name },
       },
       { new: true, upsert: true }
     );

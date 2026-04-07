@@ -1,5 +1,11 @@
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import { createBrevoTransporter } from "../config/brevo.ts";
 import { env } from "../config/env.ts";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const LOGO_PATH = join(__dirname, "../assets/yorindo-logo.png");
 
 function escapeHtml(value: string): string {
   return value
@@ -43,25 +49,12 @@ function renderLoginOtpEmail(name: string, otp: string) {
         <!-- Card -->
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;">
 
-          <!-- Brand colour stripe (purple / blue / green / orange / yellow from Yorindo logo) -->
+          <!-- Header: dark navy with white card behind logo -->
           <tr>
-            <td style="padding:0;font-size:0;line-height:0;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-                <tr>
-                  <td style="height:5px;background-color:#6B3FA0;font-size:1px;line-height:1px;">&nbsp;</td>
-                  <td style="height:5px;background-color:#2B5EAB;font-size:1px;line-height:1px;">&nbsp;</td>
-                  <td style="height:5px;background-color:#43B049;font-size:1px;line-height:1px;">&nbsp;</td>
-                  <td style="height:5px;background-color:#EA4C1B;font-size:1px;line-height:1px;">&nbsp;</td>
-                  <td style="height:5px;background-color:#F5A623;font-size:1px;line-height:1px;">&nbsp;</td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Logo -->
-          <tr>
-            <td align="center" style="padding:32px 40px 24px;border-bottom:1px solid #f1f5f9;">
-              <img src="data:image/png;base64,${YORINDO_LOGO_B64}" alt="Yorindo Communication" width="200" style="display:block;width:200px;max-width:200px;height:auto;border:0;" />
+            <td align="center" style="padding:28px 40px;background-color:#0c1b45;">
+              <div style="display:inline-block;background-color:#ffffff;border-radius:14px;padding:14px 28px;">
+                <img src="cid:yorindo-logo" alt="Yorindo Communication" width="140" style="display:block;width:140px;max-width:140px;height:auto;border:0;" />
+              </div>
             </td>
           </tr>
 
@@ -86,12 +79,8 @@ function renderLoginOtpEmail(name: string, otp: string) {
                 6-Digit Code
               </p>
 
-              <!-- Individual digit boxes \u2014 mirrors the OtpInput on the login page -->
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
-                <tr>
-                  ${otp.split("").map(digit => `<td style="width:52px;height:64px;border:1.5px solid #1a40a8;border-radius:10px;background-color:#f8faff;text-align:center;vertical-align:middle;font-family:'Courier New',Courier,monospace;font-size:30px;font-weight:700;color:#0c1b45;">${digit}</td><td style="width:7px;font-size:1px;line-height:1px;">&nbsp;</td>`).join("")}
-                </tr>
-              </table>
+              <!-- OTP code — centered, no boxes -->
+              <p style="margin:0 0 28px;text-align:center;font-size:40px;font-weight:700;letter-spacing:0.25em;color:#0c1b45;">${otp}</p>
 
               <!-- Expiry -->
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px;">
@@ -111,7 +100,7 @@ function renderLoginOtpEmail(name: string, otp: string) {
           <tr>
             <td style="padding:0 40px 28px;">
               <p style="margin:0;font-size:13px;line-height:1.7;color:#94a3b8;">
-                Never share this code with anyone \u2014 including Yorindo staff. We will never ask for your OTP.<br>
+                Never share this code with anyone<br>
                 If you did not request this, you can safely ignore this email.
               </p>
             </td>
@@ -174,6 +163,13 @@ export async function sendLoginOtpEmail(params: {
     subject,
     html,
     text,
+    attachments: [
+      {
+        filename: "yorindo-logo.png",
+        content: readFileSync(LOGO_PATH),
+        cid: "yorindo-logo",
+      },
+    ],
   });
 
   console.log("[EMAIL] OTP email send attempt", {

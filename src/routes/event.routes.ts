@@ -37,11 +37,7 @@ const router = Router();
 
 // GET /stats — MUST be before GET /:id (see file-level comment above).
 // All authenticated staff can view dashboard stats.
-router.get(
-  "/stats",
-  requireAuth,
-  handleGetEventStats,
-);
+router.get("/stats", requireAuth, handleGetEventStats);
 
 // GET / — all authenticated staff can view the event list.
 router.get(

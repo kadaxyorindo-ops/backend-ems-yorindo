@@ -37,6 +37,12 @@ export const env = {
     process.env.SMTP_FROM?.trim() ||
     process.env.SMTP_USER?.trim() ||
     "",
+  llmBaseUrl: process.env.LLM_BASE_URL?.trim() || "",
+  llmApiKey: process.env.LLM_API_KEY?.trim() || "",
+  llmModel: process.env.LLM_MODEL?.trim() || "",
+  llmTimeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 20000),
+  llmRetryAttempts: Number(process.env.LLM_RETRY_ATTEMPTS ?? 1),
+  llmRetryDelayMs: Number(process.env.LLM_RETRY_DELAY_MS ?? 800),
 };
 
 export const isUsingDefaultJwtSecret = !process.env.JWT_SECRET?.trim();

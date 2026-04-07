@@ -93,6 +93,8 @@ export interface IEvent {
 
   /** The embedded registration form definition for this event. */
   registrationForm: {
+    /** Optional display name for the registration form. */
+    name: string | null;
     /**
      * Incremented each time the form is published.
      * Starts at 1. Frozen into Registration.formSnapshot.version on submit.
@@ -168,6 +170,11 @@ const EventSchema = new Schema<IEvent>(
       default: "draft",
     },
     registrationForm: {
+      name: {
+        type: String,
+        trim: true,
+        default: null,
+      },
       version: {
         type: Number,
         default: 1,

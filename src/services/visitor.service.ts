@@ -24,10 +24,7 @@ interface CustomAnswerInput {
 type CustomAnswerPayload = Array<CustomAnswerInput> | Record<string, unknown>;
 
 function normalizeKey(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ");
+  return value.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
 function buildFieldLookup(fields: IRegistrationField[]) {
@@ -119,7 +116,10 @@ export async function submitVisitorRegistration(
 
   const city = await City.findOneAndUpdate(
     { name: lokasi_perusahaan },
-    { name: lokasi_perusahaan, normalizedName: lokasi_perusahaan.toLowerCase() },
+    {
+      name: lokasi_perusahaan,
+      normalizedName: lokasi_perusahaan.toLowerCase(),
+    },
     { new: true, upsert: true },
   );
 
@@ -168,7 +168,10 @@ export async function submitVisitorRegistration(
   );
 
   const fields = event.registrationForm?.fields ?? [];
-  const answers = buildCustomAnswers(survei_result, fields as IRegistrationField[]);
+  const answers = buildCustomAnswers(
+    survei_result,
+    fields as IRegistrationField[],
+  );
 
   if (Object.keys(answers).length > 0) {
     const existingSurvey = await SurveyResponse.findOne({

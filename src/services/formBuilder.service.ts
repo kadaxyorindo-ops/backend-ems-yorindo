@@ -1,5 +1,5 @@
-﻿import { randomUUID } from "node:crypto";
-import { Event } from "../models/index.ts";
+import { randomUUID } from "node:crypto";
+import { Event, Industry } from "../models/index.ts";
 import { STATUS } from "../models/constants/enums.ts";
 import type { FieldType } from "../models/constants/enums.ts";
 import type { IRegistrationField } from "../models/schemas/sub/registration-field.schema.ts";
@@ -8,6 +8,7 @@ import type {
   FormBuilderFieldInput,
   FormBuilderOptionInput,
   FormBuilderUpsertRequest,
+  FormBuilderFieldView,
   FormBuilderView,
 } from "../types/api/index.ts";
 
@@ -23,11 +24,16 @@ const DEFAULT_FIXED_FIELDS: FormBuilderFieldInput[] = [
     type: "text",
     required: true,
   },
-  { key: "company_location", label: "Lokasi Perusahaan", type: "text" },
-  { key: "industry", label: "Jenis Industri", type: "text" },
-  { key: "job_title", label: "Jabatan", type: "text" },
-  { key: "company_email", label: "Email Perusahaan", type: "email" },
-  { key: "personal_email", label: "Email Pribadi", type: "email" },
+  {
+    key: "company_location",
+    label: "Lokasi Perusahaan",
+    type: "text",
+    required: true,
+  },
+  { key: "industry", label: "Jenis Industri", type: "select", required: true },
+  { key: "job_title", label: "Jabatan", type: "text", required: true },
+  { key: "company_email", label: "Email Perusahaan", type: "email", required: true },
+  { key: "personal_email", label: "Email Pribadi", type: "email", required: true },
   { key: "phone", label: "Nomor Handphone", type: "phone", required: true },
 ];
 
@@ -110,12 +116,46 @@ function buildField(
   };
 }
 
-function buildFields(payload: FormBuilderUpsertRequest): IRegistrationField[] {
-  const fixedFields =
-    payload.fixedFields && payload.fixedFields.length > 0
-      ? payload.fixedFields
-      : DEFAULT_FIXED_FIELDS;
+function mapFieldForView(field: IRegistrationField): FormBuilderFieldView {
+  if (!field.options || field.key !== "industry") {
+    return field;
+  }
 
+  const options = field.options.map((option) => option.value);
+  return { ...field, options };
+}
+
+function mapFieldsForView(
+  fields: IRegistrationField[],
+): FormBuilderFieldView[] {
+  return fields.map((field) => mapFieldForView(field));
+}
+
+async function buildFixedFields(): Promise<FormBuilderFieldInput[]> {
+  const industries = await Industry.find()
+    .sort({ name: 1 })
+    .lean<{ name?: string | null }[]>();
+
+  const industryOptions = industries
+    .map((industry) => industry.name?.trim())
+    .filter((name): name is string => Boolean(name));
+
+  ensure(
+    industryOptions.length > 0,
+    "Industry options are not available",
+  );
+
+  return DEFAULT_FIXED_FIELDS.map((field) =>
+    field.key === "industry"
+      ? { ...field, options: industryOptions }
+      : field,
+  );
+}
+
+async function buildFields(
+  payload: FormBuilderUpsertRequest,
+): Promise<IRegistrationField[]> {
+  const fixedFields = await buildFixedFields();
   const customQuestions = payload.customQuestions ?? [];
 
   const combined: Array<{ field: FormBuilderFieldInput; isFixed: boolean }> = [
@@ -132,7 +172,7 @@ export async function upsertFormBuilder(
   eventId: string,
   payload: FormBuilderUpsertRequest,
 ): Promise<FormBuilderView | null> {
-  const fields = buildFields(payload);
+  const fields = await buildFields(payload);
 
   const event = await Event.findById(eventId);
   if (!event) return null;
@@ -172,8 +212,10 @@ export async function upsertFormBuilder(
     formName: event.registrationForm.name ?? null,
     version: event.registrationForm.version,
     publishedAt: event.registrationForm.publishedAt,
-    fixedFields: fields.filter((field) => field.isFixed),
-    customQuestions: fields.filter((field) => !field.isFixed),
+    fixedFields: mapFieldsForView(fields.filter((field) => field.isFixed)),
+    customQuestions: mapFieldsForView(
+      fields.filter((field) => !field.isFixed),
+    ),
   };
 }
 
@@ -198,8 +240,10 @@ export async function getFormBuilderByEvent(
     formName: event.registrationForm?.name ?? null,
     version: event.registrationForm?.version ?? 1,
     publishedAt: event.registrationForm?.publishedAt ?? null,
-    fixedFields: fields.filter((field) => field.isFixed),
-    customQuestions: fields.filter((field) => !field.isFixed),
+    fixedFields: mapFieldsForView(fields.filter((field) => field.isFixed)),
+    customQuestions: mapFieldsForView(
+      fields.filter((field) => !field.isFixed),
+    ),
   };
 }
 
@@ -224,7 +268,9 @@ export async function getFormBuilderBySlug(
     formName: event.registrationForm?.name ?? null,
     version: event.registrationForm?.version ?? 1,
     publishedAt: event.registrationForm?.publishedAt ?? null,
-    fixedFields: fields.filter((field) => field.isFixed),
-    customQuestions: fields.filter((field) => !field.isFixed),
+    fixedFields: mapFieldsForView(fields.filter((field) => field.isFixed)),
+    customQuestions: mapFieldsForView(
+      fields.filter((field) => !field.isFixed),
+    ),
   };
 }

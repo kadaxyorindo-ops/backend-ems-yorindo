@@ -45,6 +45,17 @@ const CUSTOM_FIELD_IDS = {
   select: "b66110e2-a6d3-4245-b3e6-d534ca1b0b51",
   date: "1984b484-4fa3-4cd0-af19-eb73ebe4fcd1",
 };
+const CUSTOM_FIELD_KEYS = [
+  "short_text_q",
+  "email_q",
+  "phone_q",
+  "number_q",
+  "textarea_q",
+  "radio_q",
+  "checkbox_q",
+  "select_q",
+  "date_q",
+];
 
 const APPEND_ONLY = true;
 
@@ -339,7 +350,11 @@ async function seedAdditionalParticipants(): Promise<void> {
     };
   });
 
-  const customFieldIds = new Set(Object.values(CUSTOM_FIELD_IDS));
+  const customFieldIds = new Set(
+    snapshotFields
+      .filter((field) => CUSTOM_FIELD_KEYS.includes(field.key))
+      .map((field) => field.fieldId),
+  );
   const surveyTypeMap: Record<string, string> = {
     text: "text",
     email: "text",

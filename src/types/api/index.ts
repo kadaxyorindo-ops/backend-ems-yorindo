@@ -27,7 +27,6 @@ export interface FormBuilderFieldInput {
 
 export interface FormBuilderUpsertRequest {
   formName?: string;
-  fixedFields?: FormBuilderFieldInput[];
   customQuestions?: FormBuilderFieldInput[];
   publish?: boolean;
 }
@@ -41,14 +40,18 @@ export interface FormBuilderEventInfo {
   slug?: string;
 }
 
+export type FormBuilderFieldView = Omit<IRegistrationField, "options"> & {
+  options?: Array<string | FormBuilderOptionInput>;
+};
+
 export interface FormBuilderView {
   event: FormBuilderEventInfo;
   eventId: string;
   formName: string | null;
   version: number;
   publishedAt: Date | null;
-  fixedFields: IRegistrationField[];
-  customQuestions: IRegistrationField[];
+  fixedFields: FormBuilderFieldView[];
+  customQuestions: FormBuilderFieldView[];
 }
 /**
  * @file types/api/index.ts

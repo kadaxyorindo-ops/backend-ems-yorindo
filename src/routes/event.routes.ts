@@ -31,6 +31,7 @@ import {
 } from "../controllers/event.controller.ts";
 import { requireAuth, requireRole } from "../middlewares/auth.middleware.ts";
 import registrationRouter from "./registration.routes.js";
+import checkInRouter from "./checkin.routes.ts";
 
 const router = Router();
 
@@ -81,5 +82,6 @@ router.delete(
 
 // Nested router — handles all /events/:eventId/registrations/* endpoints.
 router.use("/:eventId/registrations", registrationRouter);
+router.use("/:eventId/check-ins", checkInRouter);
 
 export default router;

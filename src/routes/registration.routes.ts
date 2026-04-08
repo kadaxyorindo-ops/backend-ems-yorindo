@@ -4,7 +4,7 @@
  */
 
 import { Router } from "express";
-import { requireAuth, requireRole } from "../middlewares/auth.middleware.ts";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
 import { validate } from "../middlewares/validate.middleware.ts";
 import {
   handleApproveRegistration,
@@ -29,7 +29,7 @@ const router = Router({ mergeParams: true });
 router.get(
   "/",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:view"),
   validate(eventIdParamsSchema, "params"),
   validate(getRegistrationsQuerySchema, "query"),
   handleGetRegistrations,
@@ -38,7 +38,7 @@ router.get(
 router.get(
   "/filters",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:view"),
   validate(eventIdParamsSchema, "params"),
   handleGetRegistrationFilters,
 );
@@ -46,7 +46,7 @@ router.get(
 router.patch(
   "/bulk-approve",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:approve"),
   validate(eventIdParamsSchema, "params"),
   validate(bulkApproveBodySchema, "body"),
   handleBulkApproveRegistrations,
@@ -55,7 +55,7 @@ router.patch(
 router.patch(
   "/bulk-reject",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:approve"),
   validate(eventIdParamsSchema, "params"),
   validate(bulkRejectBodySchema, "body"),
   handleBulkRejectRegistrations,
@@ -64,7 +64,7 @@ router.patch(
 router.patch(
   "/reject-all",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:approve"),
   validate(eventIdParamsSchema, "params"),
   handleRejectAllPending,
 );
@@ -72,7 +72,7 @@ router.patch(
 router.patch(
   "/:id/approve",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:approve"),
   validate(registrationParamsSchema, "params"),
   handleApproveRegistration,
 );
@@ -80,7 +80,7 @@ router.patch(
 router.patch(
   "/:id/reject",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:approve"),
   validate(registrationParamsSchema, "params"),
   validate(rejectBodySchema, "body"),
   handleRejectRegistration,

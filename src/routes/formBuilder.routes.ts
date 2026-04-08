@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
 import {
   getFormBuilderHandler,
   getFormBuilderBySlugHandler,
@@ -9,12 +10,13 @@ import { formBuilderUpsertBodySchema } from "../validators/formBuilder.validator
 
 const router = Router();
 
-router.get("/events/:eventId", getFormBuilderHandler);
+// GET /events/:eventId — staff preview; requires events:view
+router.get("/events/:eventId", requireAuth, requirePermission("events:view"), getFormBuilderHandler);
+
+// GET /slug/:slug — public; participants load the form without a token
 router.get("/slug/:slug", getFormBuilderBySlugHandler);
-router.put(
-  "/events/:eventId",
-  validate(formBuilderUpsertBodySchema, "body"),
-  upsertFormBuilderHandler,
-);
+
+// PUT /events/:eventId — staff write; requires events:edit
+router.put("/events/:eventId", requireAuth, requirePermission("events:edit"), upsertFormBuilderHandler);
 
 export default router;

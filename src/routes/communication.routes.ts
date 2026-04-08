@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth } from "../middlewares/auth.middleware.ts";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
 import { sendError, sendSuccess } from "../utils/apiResponse.ts";
 import {
   createCommunicationCampaign,
@@ -89,7 +89,7 @@ function toCampaignHistoryFilters(
   };
 }
 
-communicationRouter.get("/audience", requireAuth, async (req, res) => {
+communicationRouter.get("/audience", requireAuth, requirePermission("communication:view"), async (req, res) => {
   const parsedQuery = audienceQuerySchema.safeParse(req.query);
 
   if (!parsedQuery.success) {
@@ -122,7 +122,7 @@ communicationRouter.get("/audience", requireAuth, async (req, res) => {
   }
 });
 
-communicationRouter.get("/drafts", requireAuth, async (req, res) => {
+communicationRouter.get("/drafts", requireAuth, requirePermission("communication:view"), async (req, res) => {
   const createdByUserId = req.auth?.sub;
 
   if (!createdByUserId) {
@@ -141,7 +141,7 @@ communicationRouter.get("/drafts", requireAuth, async (req, res) => {
   }
 });
 
-communicationRouter.get("/drafts/:draftId", requireAuth, async (req, res) => {
+communicationRouter.get("/drafts/:draftId", requireAuth, requirePermission("communication:view"), async (req, res) => {
   const createdByUserId = req.auth?.sub;
   const draftId = Array.isArray(req.params.draftId)
     ? req.params.draftId[0]
@@ -167,7 +167,7 @@ communicationRouter.get("/drafts/:draftId", requireAuth, async (req, res) => {
   }
 });
 
-communicationRouter.get("/campaigns", requireAuth, async (req, res) => {
+communicationRouter.get("/campaigns", requireAuth, requirePermission("communication:view"), async (req, res) => {
   const parsedQuery = campaignHistoryQuerySchema.safeParse(req.query);
 
   if (!parsedQuery.success) {
@@ -200,7 +200,7 @@ communicationRouter.get("/campaigns", requireAuth, async (req, res) => {
   }
 });
 
-communicationRouter.post("/campaigns", requireAuth, async (req, res) => {
+communicationRouter.post("/campaigns", requireAuth, requirePermission("communication:send"), async (req, res) => {
   const parsedBody = campaignBodySchema.safeParse(req.body);
 
   if (!parsedBody.success) {
@@ -256,7 +256,7 @@ communicationRouter.post("/campaigns", requireAuth, async (req, res) => {
   }
 });
 
-communicationRouter.post("/preview", requireAuth, async (req, res) => {
+communicationRouter.post("/preview", requireAuth, requirePermission("communication:view"), async (req, res) => {
   const parsedBody = previewBodySchema.safeParse(req.body);
 
   if (!parsedBody.success) {

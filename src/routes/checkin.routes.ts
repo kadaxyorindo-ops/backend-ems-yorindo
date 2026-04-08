@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth, requireRole } from "../middlewares/auth.middleware.ts";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
 import { validate } from "../middlewares/validate.middleware.ts";
 import {
   handleGetCheckInStats,
@@ -21,7 +21,7 @@ const router = Router({ mergeParams: true });
 router.get(
   "/stats",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:checkin"),
   validate(checkInEventParamsSchema, "params"),
   handleGetCheckInStats,
 );
@@ -29,7 +29,7 @@ router.get(
 router.get(
   "/recent",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:checkin"),
   validate(checkInEventParamsSchema, "params"),
   validate(recentCheckInsQuerySchema, "query"),
   handleGetRecentCheckIns,
@@ -38,7 +38,7 @@ router.get(
 router.get(
   "/lookup",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:checkin"),
   validate(checkInEventParamsSchema, "params"),
   validate(checkInLookupQuerySchema, "query"),
   handleLookupCheckInCandidates,
@@ -47,7 +47,7 @@ router.get(
 router.post(
   "/scan",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:checkin"),
   validate(checkInEventParamsSchema, "params"),
   validate(scanCheckInBodySchema, "body"),
   handleScanCheckIn,
@@ -56,7 +56,7 @@ router.post(
 router.post(
   "/manual",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("registrations:checkin"),
   validate(checkInEventParamsSchema, "params"),
   validate(manualCheckInBodySchema, "body"),
   handleManualCheckIn,

@@ -8,12 +8,13 @@
 
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth.middleware.ts";
-import { handleGetAllIndustries } from "../controllers/industry.controller.ts";
+import { handleGetAllIndustries, handleCreateIndustry } from "../controllers/industry.controller.ts";
 
 const router = Router();
 
 // GET / — all authenticated staff can read industry master data.
 // Used to populate dropdown menus in the event creation/edit forms.
 router.get("/", requireAuth, handleGetAllIndustries);
+router.post("/", requireAuth, handleCreateIndustry);
 
 export default router;

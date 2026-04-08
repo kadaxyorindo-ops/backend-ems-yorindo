@@ -360,3 +360,22 @@ export async function deleteEvent(
 
   return doc;
 }
+
+// ---------------------------------------------------------------------------
+// hardDeleteEvent
+// ---------------------------------------------------------------------------
+
+/**
+ * Permanently removes an event and all its linked registrations from the DB.
+ * This action is irreversible — use only for draft/test events.
+ * Returns true if a document was found and deleted, false if not found.
+ */
+export async function hardDeleteEvent(id: string): Promise<boolean> {
+  const deleted = await Event.findByIdAndDelete(id).lean();
+  if (!deleted) return false;
+
+  // Cascade: remove all registrations linked to this event.
+  await Registration.deleteMany({ eventId: deleted._id });
+
+  return true;
+}

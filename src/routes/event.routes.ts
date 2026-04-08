@@ -30,6 +30,7 @@ import {
   handleCreateEvent,
   handleUpdateEvent,
   handleDeleteEvent,
+  handleHardDeleteEvent,
 } from "../controllers/event.controller.ts";
 import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
 import registrationRouter from "./registration.routes.js";
@@ -82,6 +83,15 @@ router.delete(
   requirePermission("events:delete"),
   validate(eventParamsSchema, "params"),
   handleDeleteEvent,
+);
+
+// DELETE /:id/hard — permanent delete.
+router.delete(
+  "/:id/hard",
+  requireAuth,
+  requirePermission("events:delete"),
+  validate(eventParamsSchema, "params"),
+  handleHardDeleteEvent,
 );
 
 // GET — View Event Survey Analytics (hanya untuk admin/super_admin)

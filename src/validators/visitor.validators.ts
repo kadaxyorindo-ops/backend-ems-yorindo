@@ -15,7 +15,7 @@ const customAnswerArraySchema = z.array(
   }),
 );
 
-const customAnswerObjectSchema = z.record(z.unknown());
+const customAnswerObjectSchema = z.record(z.string(), z.unknown());
 
 export const visitorRegistrationBodySchema = z.object({
   event_id: objectIdSchema,

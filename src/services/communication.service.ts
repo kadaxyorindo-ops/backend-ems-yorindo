@@ -1,9 +1,5 @@
 import { Types } from "mongoose";
-import {
-  CommunicationCampaign,
-  Event,
-  Registration,
-} from "../models/index.ts";
+import { CommunicationCampaign, Event, Registration } from "../models/index.ts";
 import { env } from "../config/env.ts";
 import { sendEmailMessage } from "./email.service.ts";
 import { enqueueCommunicationCampaignJob } from "./email-queue.service.ts";
@@ -211,7 +207,11 @@ function pickRecipientEmail(participant: {
   companyEmail?: string | null;
   personalEmail?: string | null;
 }) {
-  return participant.companyEmail?.trim() || participant.personalEmail?.trim() || null;
+  return (
+    participant.companyEmail?.trim() ||
+    participant.personalEmail?.trim() ||
+    null
+  );
 }
 
 function normalizeSearchValue(value?: string) {
@@ -261,10 +261,9 @@ function getEmptyDelivery(): CampaignDelivery {
   };
 }
 
-function buildCampaignStatus(delivery: CampaignDelivery): Exclude<
-  CampaignStatus,
-  "draft" | "queued" | "processing"
-> {
+function buildCampaignStatus(
+  delivery: CampaignDelivery,
+): Exclude<CampaignStatus, "draft" | "queued" | "processing"> {
   if (delivery.successCount > 0 && delivery.failureCount === 0) {
     return "sent";
   }
@@ -276,7 +275,9 @@ function buildCampaignStatus(delivery: CampaignDelivery): Exclude<
   return "failed";
 }
 
-function resolveTemplateId(value?: string | null): CommunicationEmailTemplateId {
+function resolveTemplateId(
+  value?: string | null,
+): CommunicationEmailTemplateId {
   return COMMUNICATION_EMAIL_TEMPLATE_IDS.includes(
     value as CommunicationEmailTemplateId,
   )
@@ -307,7 +308,9 @@ function sanitizeDraftFilters(
       ? { eventId: input.eventId }
       : {}),
     ...(typeof input.status === "string" &&
-    ["all", "pending", "approved", "rejected", "checked_in"].includes(input.status)
+    ["all", "pending", "approved", "rejected", "checked_in"].includes(
+      input.status,
+    )
       ? { status: input.status as RegistrationStatusFilter }
       : {}),
     ...(typeof input.participantType === "string" &&
@@ -485,23 +488,26 @@ type PopulatedRegistration = {
   industrySnapshot?: { refId?: Types.ObjectId | null; name?: string | null };
   jobTitleSnapshot?: { refId?: Types.ObjectId | null; name?: string | null };
   citySnapshot?: { refId?: Types.ObjectId | null; name?: string | null };
-  participantId:
-    | {
-        _id: Types.ObjectId;
-        fullName: string;
-        personalEmail?: string | null;
-        companyEmail?: string | null;
-        sourceChannel?: { code?: string | null; otherText?: string | null } | null;
-      }
-    | null;
-  eventId:
-    | {
-        _id: Types.ObjectId;
-        title: string;
-        eventDate: Date;
-        status: string;
-      }
-    | null;
+  participantId: {
+    _id: Types.ObjectId;
+    fullName: string;
+    personalEmail?: string | null;
+    companyEmail?: string | null;
+    sourceChannel?: { code?: string | null; otherText?: string | null } | null;
+    company?: {
+      companyId?: Types.ObjectId | null;
+      name?: string | null;
+    } | null;
+    industry?: { refId?: Types.ObjectId | null; name?: string | null } | null;
+    jobTitle?: { refId?: Types.ObjectId | null; name?: string | null } | null;
+    city?: { refId?: Types.ObjectId | null; name?: string | null } | null;
+  } | null;
+  eventId: {
+    _id: Types.ObjectId;
+    title: string;
+    eventDate: Date;
+    status: string;
+  } | null;
 };
 
 function toAudienceRecipient(
@@ -527,10 +533,20 @@ function toAudienceRecipient(
     email,
     participantType: record.participantType,
     status: record.status,
-    companyName: record.companySnapshot?.name ?? null,
-    industryName: record.industrySnapshot?.name ?? null,
-    jobTitleName: record.jobTitleSnapshot?.name ?? null,
-    cityName: record.citySnapshot?.name ?? null,
+    companyName:
+      record.companySnapshot?.name ??
+      record.participantId.company?.name ??
+      null,
+    industryName:
+      record.industrySnapshot?.name ??
+      record.participantId.industry?.name ??
+      null,
+    jobTitleName:
+      record.jobTitleSnapshot?.name ??
+      record.participantId.jobTitle?.name ??
+      null,
+    cityName:
+      record.citySnapshot?.name ?? record.participantId.city?.name ?? null,
     sourceChannelCode: record.participantId.sourceChannel?.code ?? null,
   };
 }
@@ -548,7 +564,11 @@ function matchesAudienceFilters(
     }
   >,
 ) {
-  if (filters.status && filters.status !== "all" && recipient.status !== filters.status) {
+  if (
+    filters.status &&
+    filters.status !== "all" &&
+    recipient.status !== filters.status
+  ) {
     return false;
   }
 
@@ -614,7 +634,10 @@ async function loadRegistrationAudience(eventId?: string) {
       : {};
 
   const registrations = (await Registration.find(match)
-    .populate("participantId", "fullName personalEmail companyEmail sourceChannel")
+    .populate(
+      "participantId",
+      "fullName personalEmail companyEmail sourceChannel company industry jobTitle city",
+    )
     .populate("eventId", "title eventDate status")
     .sort({ createdAt: -1 })
     .lean()) as unknown as PopulatedRegistration[];
@@ -627,10 +650,25 @@ async function loadRegistrationAudience(eventId?: string) {
     registrations.map((record) => [
       record._id.toString(),
       {
-        companyId: record.companySnapshot?.companyId?.toString() ?? null,
-        industryId: record.industrySnapshot?.refId?.toString() ?? null,
-        jobTitleId: record.jobTitleSnapshot?.refId?.toString() ?? null,
-        cityId: record.citySnapshot?.refId?.toString() ?? null,
+        companyId:
+          (
+            record.companySnapshot?.companyId ??
+            record.participantId?.company?.companyId
+          )?.toString() ?? null,
+        industryId:
+          (
+            record.industrySnapshot?.refId ??
+            record.participantId?.industry?.refId
+          )?.toString() ?? null,
+        jobTitleId:
+          (
+            record.jobTitleSnapshot?.refId ??
+            record.participantId?.jobTitle?.refId
+          )?.toString() ?? null,
+        cityId:
+          (
+            record.citySnapshot?.refId ?? record.participantId?.city?.refId
+          )?.toString() ?? null,
       },
     ]),
   );
@@ -704,7 +742,9 @@ export async function getCommunicationAudience(
     .toSorted((left, right) => left.fullName.localeCompare(right.fullName));
 
   const baseRecipients = filters.eventId
-    ? eventRecipients.filter((recipient) => recipient.eventId === filters.eventId)
+    ? eventRecipients.filter(
+        (recipient) => recipient.eventId === filters.eventId,
+      )
     : eventRecipients;
 
   const summaryRecipients = baseRecipients.filter((recipient) =>
@@ -795,7 +835,7 @@ export async function previewCommunicationCampaign(
   input: PreviewCommunicationCampaignInput,
 ): Promise<CommunicationCampaignPreview> {
   const sampleRecipient = input.sampleRegistrationId
-    ? (await getCampaignRecipients([input.sampleRegistrationId]))[0] ?? null
+    ? ((await getCampaignRecipients([input.sampleRegistrationId]))[0] ?? null)
     : null;
 
   const fallbackEvent = await loadEventSummary(input.eventId);
@@ -809,7 +849,9 @@ export async function previewCommunicationCampaign(
     recipientEmail: sampleRecipient?.email ?? "participant@example.com",
     eventTitle: sampleRecipient?.eventTitle ?? fallbackEvent?.title ?? null,
     eventDate: sampleRecipient?.eventDate ?? fallbackEvent?.eventDate ?? null,
-    ...(input.previewText !== undefined ? { previewText: input.previewText } : {}),
+    ...(input.previewText !== undefined
+      ? { previewText: input.previewText }
+      : {}),
   });
 
   return {
@@ -920,11 +962,14 @@ export async function listCommunicationCampaignHistory(
       return searchableText.includes(normalizedSearch);
     });
 
-  const statusCounts = items.reduce<Record<string, number>>((result, campaign) => {
-    result.all = (result.all ?? 0) + 1;
-    result[campaign.status] = (result[campaign.status] ?? 0) + 1;
-    return result;
-  }, {});
+  const statusCounts = items.reduce<Record<string, number>>(
+    (result, campaign) => {
+      result.all = (result.all ?? 0) + 1;
+      result[campaign.status] = (result[campaign.status] ?? 0) + 1;
+      return result;
+    },
+    {},
+  );
 
   return {
     items,
@@ -944,7 +989,9 @@ export async function createCommunicationCampaign(
     throw new Error("Pengguna pengirim tidak valid.");
   }
 
-  const recipients = await getCampaignRecipients(input.recipientRegistrationIds);
+  const recipients = await getCampaignRecipients(
+    input.recipientRegistrationIds,
+  );
 
   if (input.mode === "send" && recipients.length === 0) {
     throw new Error("Pilih minimal satu penerima email untuk dikirim.");
@@ -964,7 +1011,8 @@ export async function createCommunicationCampaign(
     throw new Error("Isi email masih kosong.");
   }
 
-  const initialStatus: CampaignStatus = input.mode === "send" ? "queued" : "draft";
+  const initialStatus: CampaignStatus =
+    input.mode === "send" ? "queued" : "draft";
   const draftObjectId = toObjectId(input.draftId);
   const existingDraft =
     draftObjectId &&
@@ -1154,7 +1202,9 @@ export async function processQueuedCommunicationCampaign(campaignId: string) {
       delivery.failures.push({
         email: recipient.email,
         reason:
-          error instanceof Error ? error.message : "Unknown background delivery error.",
+          error instanceof Error
+            ? error.message
+            : "Unknown background delivery error.",
       });
     }
   }

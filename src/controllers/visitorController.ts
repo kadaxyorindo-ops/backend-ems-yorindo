@@ -1,11 +1,11 @@
 ﻿import type { Request, Response, NextFunction } from "express"; // 💡 Wajib di-import
-import City from '../models/City.ts';
-import Company from '../models/Company.ts';
-import Industry from '../models/Industry.ts';
-import JobTitle from '../models/JobTitle.ts';
-import Participant from '../models/Participant.ts';
-import Registration from '../models/Registration.ts';
-import SurveyResponse from '../models/SurveyResponse.ts';
+import City from "../models/City.ts";
+import Company from "../models/Company.ts";
+import Industry from "../models/Industry.ts";
+import JobTitle from "../models/JobTitle.ts";
+import Participant from "../models/Participant.ts";
+import Registration from "../models/Registration.ts";
+import SurveyResponse from "../models/SurveyResponse.ts";
 import { Event } from "../models/index.ts";
 import type { VisitorRegistrationBody } from "../validators/visitor.validators.ts";
 
@@ -30,15 +30,20 @@ function buildCustomValueMap(input: unknown): Map<string, unknown> {
     return map;
   }
   if (typeof input === "object") {
-    for (const [label, value] of Object.entries(input as Record<string, unknown>)) {
+    for (const [label, value] of Object.entries(
+      input as Record<string, unknown>,
+    )) {
       map.set(normalizeKey(label), value);
     }
   }
   return map;
 }
 
-
-export const submitVisitorRegistration = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+export const submitVisitorRegistration = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<any> => {
   try {
     const data = req.body as VisitorRegistrationBody;
 
@@ -52,12 +57,14 @@ export const submitVisitorRegistration = async (req: Request, res: Response, nex
       lokasi_perusahaan,
       jenis_industri,
       jabatan,
-      survei_result
+      survei_result,
     } = data;
 
     const event = await Event.findById(event_id).lean();
     if (!event) {
-      return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Event tidak ditemukan" });
     }
 
     const queryKondisi = [];
@@ -66,52 +73,55 @@ export const submitVisitorRegistration = async (req: Request, res: Response, nex
     if (no_hp) queryKondisi.push({ phone: no_hp });
 
     if (queryKondisi.length > 0) {
-      const existingParticipants = await Participant.find({ $or: queryKondisi });
+      const existingParticipants = await Participant.find({
+        $or: queryKondisi,
+      });
 
       for (const p of existingParticipants) {
         const isAlreadyRegistered = await Registration.findOne({
           eventId: event_id,
-          $or: [
-            { participantId: p._id },
-            { participantId: String(p._id) }
-          ]
+          $or: [{ participantId: p._id }, { participantId: String(p._id) }],
         });
 
         if (isAlreadyRegistered) {
-          return res.status(409).json({ 
-            success: false, 
-            message: "Email atau nomor HP Anda sudah terdaftar untuk event ini." 
+          return res.status(409).json({
+            success: false,
+            message:
+              "Email atau nomor HP Anda sudah terdaftar untuk event ini.",
           });
         }
       }
     }
 
     const city = await City.findOneAndUpdate(
-      { name: lokasi_perusahaan }, 
-      { name: lokasi_perusahaan, normalizedName: lokasi_perusahaan.toLowerCase() }, 
-      { new: true, upsert: true }
+      { name: lokasi_perusahaan },
+      {
+        name: lokasi_perusahaan,
+        normalizedName: lokasi_perusahaan.toLowerCase(),
+      },
+      { new: true, upsert: true },
     );
 
     const company = await Company.findOneAndUpdate(
-      { name: nama_company }, 
-      { name: nama_company, normalizedName: nama_company.toLowerCase() }, 
-      { new: true, upsert: true }
+      { name: nama_company },
+      { name: nama_company, normalizedName: nama_company.toLowerCase() },
+      { new: true, upsert: true },
     );
 
     const industry = await Industry.findOneAndUpdate(
-      { name: jenis_industri }, 
-      { name: jenis_industri, normalizedName: jenis_industri.toLowerCase() }, 
-      { new: true, upsert: true }
+      { name: jenis_industri },
+      { name: jenis_industri, normalizedName: jenis_industri.toLowerCase() },
+      { new: true, upsert: true },
     );
 
     const jobTitle = await JobTitle.findOneAndUpdate(
-      { name: jabatan }, 
+      { name: jabatan },
       { name: jabatan, normalizedName: jabatan.toLowerCase() },
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
 
     const participant = await Participant.findOneAndUpdate(
-      { companyEmail: email_perusahaan }, 
+      { companyEmail: email_perusahaan },
       {
         fullName: nama_lengkap,
         normalizedFullName: nama_lengkap.toLowerCase(),
@@ -121,19 +131,28 @@ export const submitVisitorRegistration = async (req: Request, res: Response, nex
         company: { companyId: company!._id, name: company!.name },
         industry: { refId: industry!._id, name: industry!.name },
         jobTitle: { refId: jobTitle!._id, name: jobTitle!.name },
-        city: { refId: city!._id, name: city!.name }
+        city: { refId: city!._id, name: city!.name },
       },
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
 
     const registration = await Registration.findOneAndUpdate(
       { eventId: event_id, participantId: participant!._id },
-      { 
-        eventId: event_id, 
-        participantId: participant!._id, 
-        status: 'pending' 
+      {
+        $set: {
+          companySnapshot: { companyId: company!._id, name: company!.name },
+          industrySnapshot: { refId: industry!._id, name: industry!.name },
+          jobTitleSnapshot: { refId: jobTitle!._id, name: jobTitle!.name },
+          citySnapshot: { refId: city!._id, name: city!.name },
+        },
+        $setOnInsert: {
+          eventId: event_id,
+          participantId: participant!._id,
+          participantType: "participant",
+          status: "pending",
+        },
       },
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
 
     const answersMap = buildCustomValueMap(survei_result);
@@ -147,12 +166,12 @@ export const submitVisitorRegistration = async (req: Request, res: Response, nex
       if (!existingSurvey) {
         const survey = new SurveyResponse({
           eventId: event_id,
-          surveyId: event.surveyId || null, 
+          surveyId: event.surveyId || null,
           participantId: participant!._id,
           registrationId: registration!._id,
-          answers: Object.fromEntries(answersMap)
+          answers: Object.fromEntries(answersMap),
         });
-        
+
         await survey.save();
       }
     }
@@ -162,10 +181,9 @@ export const submitVisitorRegistration = async (req: Request, res: Response, nex
       message: "Proses registrasi berhasil!",
       data: {
         participant_id: participant!._id,
-        registration_id: registration!._id 
-      }
+        registration_id: registration!._id,
+      },
     });
-
   } catch (error) {
     next(error);
   }

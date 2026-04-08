@@ -6,8 +6,8 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
-import { getAllIndustries } from "../services/industry.service.ts";
-import { sendSuccess } from "../utils/apiResponse.ts";
+import { getAllIndustries, createIndustry } from "../services/industry.service.ts";
+import { sendSuccess, sendError } from "../utils/apiResponse.ts";
 
 /**
  * GET /api/v1/industries
@@ -23,6 +23,35 @@ export async function handleGetAllIndustries(
     const industries = await getAllIndustries();
     sendSuccess(res, 200, "Industries fetched successfully", industries);
   } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /api/v1/industries
+ * Creates a new industry. Returns 409 if name is duplicate or too similar.
+ */
+export async function handleCreateIndustry(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { name } = req.body as { name: string };
+
+    if (!name || typeof name !== "string" || name.trim().length === 0) {
+      sendError(res, 400, "Industry name is required");
+      return;
+    }
+
+    const industry = await createIndustry(name);
+    sendSuccess(res, 201, "Industry created successfully", industry);
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException;
+    if (err.code === "SIMILAR" || (err as unknown as { code?: number }).code === 11000) {
+      sendError(res, 409, err.message || "Industry already exists");
+      return;
+    }
     next(error);
   }
 }

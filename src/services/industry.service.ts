@@ -28,3 +28,36 @@ export async function getAllIndustries(): Promise<LeanIndustry[]> {
     .sort({ name: 1 })
     .lean<LeanIndustry[]>();
 }
+
+/**
+ * Creates a new industry. Normalizes the name for case-insensitive uniqueness.
+ * Throws a duplicate error (code 11000) if the name already exists —
+ * the controller catches it and returns a 409.
+ */
+export async function createIndustry(name: string): Promise<LeanIndustry> {
+  const trimmed = name.trim();
+  const normalized = trimmed.toLowerCase();
+
+  // Check for similar names before hitting the unique index.
+  // "Similar" = normalized name contains or is contained by an existing one.
+  const existing = await Industry.findOne({
+    $or: [
+      { normalizedName: normalized },
+      { normalizedName: { $regex: `^${normalized}` } },
+      { normalizedName: { $regex: normalized } },
+    ],
+  }).lean<LeanIndustry>();
+
+  if (existing) {
+    const err = new Error(`Industry is too similar to existing: "${existing.name}"`);
+    (err as NodeJS.ErrnoException).code = "SIMILAR";
+    throw err;
+  }
+
+  const doc = await new Industry({
+    name: trimmed,
+    normalizedName: normalized,
+  }).save();
+
+  return doc.toObject();
+}

@@ -29,53 +29,53 @@ import {
   handleUpdateEvent,
   handleDeleteEvent,
 } from "../controllers/event.controller.ts";
-import { requireAuth, requireRole } from "../middlewares/auth.middleware.ts";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
 import registrationRouter from "./registration.routes.js";
 import checkInRouter from "./checkin.routes.ts";
 
 const router = Router();
 
 // GET /stats — MUST be before GET /:id (see file-level comment above).
-// All authenticated staff can view dashboard stats.
 router.get(
   "/stats",
   requireAuth,
+  requirePermission("events:view"),
   handleGetEventStats,
 );
 
-// GET / — all authenticated staff can view the event list.
+// GET / — list events.
 router.get(
   "/",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("events:view"),
   validate(getAllEventsQuerySchema, "query"),
   handleGetAllEvents,
 );
 
-// POST / — only admin and above can create events.
+// POST / — create event.
 router.post(
   "/",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("events:create"),
   validate(createEventBodySchema, "body"),
   handleCreateEvent,
 );
 
-// PATCH /:id — only admin and above can update events.
+// PATCH /:id — update event.
 router.patch(
   "/:id",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("events:edit"),
   validate(eventParamsSchema, "params"),
   validate(updateEventBodySchema, "body"),
   handleUpdateEvent,
 );
 
-// DELETE /:id — only admin and above can cancel events.
+// DELETE /:id — cancel event.
 router.delete(
   "/:id",
   requireAuth,
-  requireRole("super_admin", "event_operator"),
+  requirePermission("events:delete"),
   validate(eventParamsSchema, "params"),
   handleDeleteEvent,
 );

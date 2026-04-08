@@ -69,6 +69,21 @@ export interface EventStats {
 }
 
 // ---------------------------------------------------------------------------
+// getEventById
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches a single event by its id.
+ * Returns null if no document with that _id exists (controller handles 404).
+ */
+export async function getEventById(
+  id: string,
+): Promise<(IEvent & { _id: unknown }) | null> {
+  const doc = await Event.findById(id).lean<IEvent & { _id: unknown }>();
+  return doc;
+}
+
+// ---------------------------------------------------------------------------
 // getAllEvents
 // ---------------------------------------------------------------------------
 

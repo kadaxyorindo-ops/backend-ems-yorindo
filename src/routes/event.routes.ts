@@ -8,6 +8,7 @@
  *                       string "stats" as the :id param and the ObjectId
  *                       validator would reject it with a 422.
  *   GET  /            → paginated event list with registration counts
+ *   GET  /:id         → fetch a single event
  *   POST /            → create event
  *   PATCH /:id        → update event
  *   DELETE /:id       → soft-delete (cancel) event
@@ -24,6 +25,7 @@ import {
 } from "../validators/event.validators.ts";
 import {
   handleGetAllEvents,
+  handleGetEventById,
   handleGetEventStats,
   handleCreateEvent,
   handleUpdateEvent,
@@ -48,6 +50,15 @@ router.get(
   requireRole("super_admin", "event_operator"),
   validate(getAllEventsQuerySchema, "query"),
   handleGetAllEvents,
+);
+
+// GET /:id — all authenticated staff can view an event by id.
+router.get(
+  "/:id",
+  // requireAuth,
+  // requireRole("super_admin", "event_operator"),
+  validate(eventParamsSchema, "params"),
+  handleGetEventById,
 );
 
 // POST / — only admin and above can create events.
@@ -81,9 +92,9 @@ router.delete(
 // GET — View Event Survey Analytics (hanya untuk admin/super_admin)
 router.get(
   "/:eventId/analytics",
-  // requireAuth,                            
-  // requireRole("super_admin", "admin", "exhibitor"),    
-  getEventSurveyAnalytics
+  // requireAuth,
+  // requireRole("super_admin", "admin", "exhibitor"),
+  getEventSurveyAnalytics,
 );
 
 // GET — Generate AI Insight dari data Survey
@@ -91,7 +102,7 @@ router.get(
   "/:eventId/analytics/ai-insight",
   // requireAuth,
   // requireRole("super_admin", "admin", "exhibitor"),
-  generateEventAIInsight
+  generateEventAIInsight,
 );
 
 // Nested router — handles all /events/:eventId/registrations/* endpoints.

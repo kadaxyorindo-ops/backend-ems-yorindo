@@ -1,4 +1,9 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
+// Generate 8-digit structured QR code
+function generateQRCode(): string {
+  return Array.from(randomBytes(8), (byte) => String(byte % 10)).join("");
+}
+
 import QRCode from "qrcode";
 import { Types } from "mongoose";
 import { Event, Participant, Registration } from "../models/index.ts";
@@ -20,16 +25,16 @@ export type RegistrationTicketQueueResult = {
 const QR_ATTACHMENT_CID = "yorindo-registration-ticket-qr";
 
 function toObjectId(value: string) {
-  return Types.ObjectId.isValid(value)
-    ? new Types.ObjectId(value)
-    : null;
+  return Types.ObjectId.isValid(value) ? new Types.ObjectId(value) : null;
 }
 
-function resolveTicketRecipient(participant: {
-  fullName?: string | null;
-  personalEmail?: string | null;
-  companyEmail?: string | null;
-} | null) {
+function resolveTicketRecipient(
+  participant: {
+    fullName?: string | null;
+    personalEmail?: string | null;
+    companyEmail?: string | null;
+  } | null,
+) {
   if (!participant) {
     return null;
   }
@@ -173,7 +178,7 @@ function renderTicketEmail(params: {
                     <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border:1px solid #dbe5ff;border-radius:24px;padding:12px;">
                       <tr>
                         <td align="center">
-                          <img src="cid:${QR_ATTACHMENT_CID}" alt="QR ticket for event check-in" width="240" height="240" style="display:block;width:240px;height:240px;border:0;" />
+                          <img src="cid:${QR_ATTACHMENT_CID}" alt="QR ticket for event check-in" width="400" height="400" style="display:block;width:400px;height:400px;border:0;" />
                         </td>
                       </tr>
                     </table>
@@ -240,10 +245,10 @@ function renderTicketEmail(params: {
 
 async function buildTicketQrBuffer(value: string) {
   return QRCode.toBuffer(value, {
-    errorCorrectionLevel: "M",
-    margin: 1,
+    errorCorrectionLevel: "L",
+    margin: 2,
     type: "png",
-    width: 320,
+    width: 600,
     color: {
       dark: "#0f2f78",
       light: "#ffffff",
@@ -255,7 +260,7 @@ export function buildRegistrationTicket(params: {
   registrationId: string;
   eventId: string;
 }) {
-  const qrCode = randomUUID();
+  const qrCode = generateQRCode();
 
   return {
     qrCode,
@@ -288,7 +293,11 @@ export async function queueRegistrationTicketEmail(
     .select("participantId status ticket")
     .lean();
 
-  if (!registration || registration.status !== "approved" || !registration.ticket?.qrCode) {
+  if (
+    !registration ||
+    registration.status !== "approved" ||
+    !registration.ticket?.qrCode
+  ) {
     return {
       queueAccepted: false,
       status: "failed",
@@ -381,7 +390,9 @@ export async function processQueuedRegistrationTicketEmail(
   const objectId = toObjectId(registrationId);
 
   if (!objectId) {
-    console.warn(`[QUEUE] Skip invalid registration ticket id: ${registrationId}`);
+    console.warn(
+      `[QUEUE] Skip invalid registration ticket id: ${registrationId}`,
+    );
     return;
   }
 
@@ -434,7 +445,7 @@ export async function processQueuedRegistrationTicketEmail(
   }
 
   try {
-    const qrValue = registration.ticket.qrPayload?.trim() || registration.ticket.qrCode;
+    const qrValue = registration.ticket.qrCode;
     const qrBuffer = await buildTicketQrBuffer(qrValue);
     const email = renderTicketEmail({
       recipientName: recipient.fullName,

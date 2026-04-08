@@ -117,7 +117,7 @@ export async function getAllEvents(
   const sortDirection = sortOrder === "asc" ? 1 : -1;
   const skip = (page - 1) * limit;
 
-  const PipelineStage = [
+  const pipeline: PipelineStage[] = [
     // Stage 1 — filter the events collection.
     { $match: filter },
 
@@ -193,7 +193,7 @@ export async function getAllEvents(
     },
   ];
 
-  const [result] = await Event.aggregate(PipelineStage);
+  const [result] = await Event.aggregate(pipeline);
 
   const items: EventWithCounts[] = result?.items  ?? [];
   const total: number            = result?.total[0]?.count ?? 0;

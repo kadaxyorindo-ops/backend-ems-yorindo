@@ -17,6 +17,7 @@ import industryRouter from "./industry.routes.ts";
 import formBuilderRoutes from "./formBuilder.routes.ts";
 import visitorRoutes from "./visitor.routes.ts";
 import analyticRoutes from "./analytic.routes.ts";
+import surveyAnalyticRoutes from "./survey-analytic.routes.ts";
 import {
   getAuthenticatedUser,
   requestLoginOtp,
@@ -32,6 +33,7 @@ apiV1Router.use("/auth", authRouter);
 apiV1Router.use("/communications", communicationRouter);
 apiV1Router.use("/events", eventRouter);
 apiV1Router.use("/analytics", analyticRoutes);
+apiV1Router.use("/survey-analytics", surveyAnalyticRoutes);
 apiV1Router.use("/users", userRouter);
 
 // Future routers go here:

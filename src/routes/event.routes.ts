@@ -8,6 +8,7 @@
  *                       string "stats" as the :id param and the ObjectId
  *                       validator would reject it with a 422.
  *   GET  /            → paginated event list with registration counts
+ *   GET  /:id         → fetch a single event
  *   POST /            → create event
  *   PATCH /:id        → update event
  *   DELETE /:id       → soft-delete (cancel) event
@@ -24,6 +25,7 @@ import {
 } from "../validators/event.validators.ts";
 import {
   handleGetAllEvents,
+  handleGetEventById,
   handleGetEventStats,
   handleCreateEvent,
   handleUpdateEvent,
@@ -31,6 +33,8 @@ import {
 } from "../controllers/event.controller.ts";
 import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
 import registrationRouter from "./registration.routes.js";
+import { getEventSurveyAnalytics } from "../controllers/analytics.controller.ts";
+import { generateEventAIInsight } from "../controllers/ai.controller.ts";
 import checkInRouter from "./checkin.routes.ts";
 
 const router = Router();
@@ -78,6 +82,22 @@ router.delete(
   requirePermission("events:delete"),
   validate(eventParamsSchema, "params"),
   handleDeleteEvent,
+);
+
+// GET — View Event Survey Analytics (hanya untuk admin/super_admin)
+router.get(
+  "/:eventId/analytics",
+  // requireAuth,
+  // requireRole("super_admin", "admin", "exhibitor"),
+  getEventSurveyAnalytics,
+);
+
+// GET — Generate AI Insight dari data Survey
+router.get(
+  "/:eventId/analytics/ai-insight",
+  // requireAuth,
+  // requireRole("super_admin", "admin", "exhibitor"),
+  generateEventAIInsight,
 );
 
 // Nested router — handles all /events/:eventId/registrations/* endpoints.

@@ -1,13 +1,12 @@
-﻿import type { Request, Response } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { Types } from "mongoose";
 import {
-  FormBuilderValidationError,
   getFormBuilderByEvent,
   getFormBuilderBySlug,
   upsertFormBuilder,
 } from "../services/formBuilder.service.ts";
 import { sendError, sendSuccess } from "../utils/apiResponse.ts";
-import type { FormBuilderUpsertRequest } from "../types/api/index.ts";
+import type { FormBuilderUpsertBody } from "../validators/formBuilder.validators.ts";
 
 function isValidObjectId(id: string): boolean {
   return Types.ObjectId.isValid(id);
@@ -16,69 +15,75 @@ function isValidObjectId(id: string): boolean {
 export async function getFormBuilderHandler(
   req: Request,
   res: Response,
-): Promise<Response> {
+  next: NextFunction,
+): Promise<void> {
   try {
-    const { eventId } = req.params;
+    const eventId = req.params.eventId as string;
 
     if (!eventId || !isValidObjectId(eventId)) {
-      return sendError(res, 400, "Invalid eventId");
+      sendError(res, 400, "Invalid eventId");
+      return;
     }
 
     const data = await getFormBuilderByEvent(eventId);
     if (!data) {
-      return sendError(res, 404, "Event not found");
+      sendError(res, 404, "Event not found");
+      return;
     }
 
-    return sendSuccess(res, 200, "form builder fetched", data);
+    sendSuccess(res, 200, "form builder fetched", data);
   } catch (error) {
-    return sendError(res, 500, "failed to fetch form builder", error);
+    next(error);
   }
 }
 
 export async function upsertFormBuilderHandler(
   req: Request,
   res: Response,
-): Promise<Response> {
+  next: NextFunction,
+): Promise<void> {
   try {
     const { eventId } = req.params;
-    const payload = req.body as FormBuilderUpsertRequest;
+    const payload = res.locals.parsed.body as FormBuilderUpsertBody;
 
     if (!eventId || !isValidObjectId(eventId)) {
-      return sendError(res, 400, "Invalid eventId");
+      sendError(res, 400, "Invalid eventId");
+      return;
     }
 
     const data = await upsertFormBuilder(eventId, payload);
     if (!data) {
-      return sendError(res, 404, "Event not found");
+      sendError(res, 404, "Event not found");
+      return;
     }
 
-    return sendSuccess(res, 200, "form builder saved", data);
+    sendSuccess(res, 200, "form builder saved", data);
   } catch (error) {
-    if (error instanceof FormBuilderValidationError) {
-      return sendError(res, error.statusCode, error.message);
-    }
-    return sendError(res, 500, "failed to save form builder", error);
+    next(error);
   }
 }
 
 export async function getFormBuilderBySlugHandler(
   req: Request,
   res: Response,
-): Promise<Response> {
+  next: NextFunction,
+): Promise<void> {
   try {
     const { slug } = req.params;
 
     if (!slug || typeof slug !== "string") {
-      return sendError(res, 400, "Invalid slug");
+      sendError(res, 400, "Invalid slug");
+      return;
     }
 
     const data = await getFormBuilderBySlug(slug);
     if (!data) {
-      return sendError(res, 404, "Event not found");
+      sendError(res, 404, "Event not found");
+      return;
     }
 
-    return sendSuccess(res, 200, "form builder fetched", data);
+    sendSuccess(res, 200, "form builder fetched", data);
   } catch (error) {
-    return sendError(res, 500, "failed to fetch form builder", error);
+    next(error);
   }
 }

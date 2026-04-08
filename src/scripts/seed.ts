@@ -88,6 +88,336 @@ const SUPER_ADMINS = [
 // Seed
 // ---------------------------------------------------------------------------
 
+async function seedAdditionalParticipants(): Promise<void> {
+  console.log("\n[SEED] Append-only mode: adding participants...\n");
+
+  const eventDoc = await Event.findById(TARGET_EVENT_ID).lean();
+  if (!eventDoc) {
+    throw new Error(`Event not found for ID ${TARGET_EVENT_ID.toHexString()}`);
+  }
+
+  const [companyDocs, industries, jobTitles, cities, users] = await Promise.all(
+    [
+      Company.find().lean(),
+      Industry.find().lean(),
+      JobTitle.find().lean(),
+      City.find().lean(),
+      User.find().lean(),
+    ],
+  );
+
+  if (!companyDocs.length) throw new Error("Companies not found");
+  if (!industries.length) throw new Error("Industries not found");
+  if (!jobTitles.length) throw new Error("Job titles not found");
+  if (!cities.length) throw new Error("Cities not found");
+
+  const adminUser = users[0] ?? null;
+
+  const snapshotFields = (eventDoc.registrationForm?.fields ?? []) as Array<{
+    fieldId: string;
+    key: string;
+    label: string;
+    type:
+      | "text"
+      | "email"
+      | "phone"
+      | "number"
+      | "textarea"
+      | "radio"
+      | "checkbox"
+      | "select"
+      | "date"
+      | "file";
+    order: number;
+    isFixed: boolean;
+    options?: Array<{ value: string; label?: string }>;
+  }>;
+
+  if (!snapshotFields.length) {
+    throw new Error("Event registration form fields not found");
+  }
+
+  const fieldByKey = new Map(snapshotFields.map((field) => [field.key, field]));
+  const getField = (key: string) => {
+    const field = fieldByKey.get(key);
+    if (!field) {
+      throw new Error(`Missing form field for key: ${key}`);
+    }
+    return field;
+  };
+
+  interface SnapRef {
+    _id: Types.ObjectId;
+    name: string;
+  }
+  interface PRaw {
+    fullName: string;
+    coIdx: number;
+    ind: SnapRef;
+    jt: SnapRef;
+    city: SnapRef;
+    dept: string;
+    jabatan: string;
+    jenisLayanan: string;
+    companyEmail: string | null;
+    phone: string | null;
+    type: "participant" | "exhibitor";
+    status: "pending" | "approved" | "rejected" | "checked_in";
+  }
+
+  const deptOptions = ["HR", "IT", "Finance", "Operations"];
+  const statusOptions: PRaw["status"][] = ["pending", "approved", "checked_in"];
+  const industryOptions = industries as unknown as SnapRef[];
+  const jobTitleOptions = jobTitles as unknown as SnapRef[];
+  const cityOptions = cities as unknown as SnapRef[];
+
+  const pRaw: PRaw[] = [];
+  const generatedCount = 100;
+
+  for (let i = 0; i < generatedCount; i += 1) {
+    const index = i + 1;
+    const coIdx = i % companyDocs.length;
+    const ind = industryOptions[i % industryOptions.length]!;
+    const jt = jobTitleOptions[i % jobTitleOptions.length]!;
+    const city = cityOptions[i % cityOptions.length]!;
+    const dept = deptOptions[i % deptOptions.length]!;
+    const status = statusOptions[i % statusOptions.length]!;
+
+    pRaw.push({
+      fullName: `Seed Participant ${index}`,
+      coIdx,
+      ind,
+      jt,
+      city,
+      dept,
+      jabatan: jt.name,
+      jenisLayanan: ind.name,
+      companyEmail: `seed${String(index).padStart(3, "0")}@example.com`,
+      phone: `0812000${String(index).padStart(4, "0")}`,
+      type: "participant",
+      status,
+    });
+  }
+
+  const participantDocs = await Participant.insertMany(
+    pRaw.map((p) => ({
+      fullName: p.fullName,
+      normalizedFullName: p.fullName.toLowerCase(),
+      personalEmail: `personal.${p.companyEmail}`,
+      companyEmail: p.companyEmail,
+      phone: p.phone,
+      company: {
+        companyId: companyDocs[p.coIdx]!._id,
+        name: companyDocs[p.coIdx]!.name,
+      },
+      industry: {
+        refId: p.ind._id,
+        name: p.ind.name,
+      },
+      jobTitle: {
+        refId: p.jt._id,
+        name: p.jt.name,
+      },
+      city: {
+        refId: p.city._id,
+        name: p.city.name,
+      },
+      defaultParticipantType: p.type,
+      sourceChannel: { code: "Seed", otherText: null },
+      identityFingerprint: null,
+      notes: null,
+      isActive: true,
+    })),
+  );
+
+  const radioChoices = ["Basic", "Pro", "Enterprise"];
+  const checkboxChoices = ["CRM", "ERP", "HRIS", "Analytics"];
+  const selectChoices = ["instagram", "linkedin", "website"];
+
+  const registrations = participantDocs.map((participant, i) => {
+    const raw = pRaw[i]!;
+    const isApproved = raw.status === "approved" || raw.status === "checked_in";
+    const isCheckedIn = raw.status === "checked_in";
+    const isRejected = raw.status === "rejected";
+
+    const approvedAt = isApproved ? new Date() : null;
+    const qrCode = isApproved ? `QR-${uid()}` : null;
+
+    const answers = [
+      {
+        ...getField("full_name"),
+        value: raw.fullName,
+      },
+      {
+        ...getField("company_name"),
+        value: companyDocs[raw.coIdx]!.name,
+      },
+      {
+        ...getField("company_location"),
+        value: raw.city.name,
+      },
+      {
+        ...getField("industry"),
+        value: raw.ind.name,
+      },
+      {
+        ...getField("job_title"),
+        value: raw.jabatan,
+      },
+      {
+        ...getField("company_email"),
+        value: raw.companyEmail ?? "",
+      },
+      {
+        ...getField("personal_email"),
+        value: `personal.${raw.companyEmail}`,
+      },
+      {
+        ...getField("phone"),
+        value: raw.phone ?? "",
+      },
+      {
+        ...getField("short_text_q"),
+        value: `Jawaban singkat ${i + 1}`,
+      },
+      {
+        ...getField("email_q"),
+        value: `alt${String(i + 1).padStart(3, "0")}@example.com`,
+      },
+      {
+        ...getField("phone_q"),
+        value: `0812555${String(i + 1).padStart(4, "0")}`,
+      },
+      {
+        ...getField("number_q"),
+        value: 50 + (i % 450),
+      },
+      {
+        ...getField("textarea_q"),
+        value: `Perusahaan kami bergerak di bidang ${raw.jenisLayanan}.`,
+      },
+      {
+        ...getField("radio_q"),
+        value: pick(radioChoices, i),
+      },
+      {
+        ...getField("checkbox_q"),
+        value: pickMany(checkboxChoices, i),
+      },
+      {
+        ...getField("select_q"),
+        value: pick(selectChoices, i),
+      },
+      {
+        ...getField("date_q"),
+        value: new Date(2025, 9, (i % 28) + 1),
+      },
+    ];
+
+    return {
+      eventId: eventDoc._id,
+      participantId: participant._id,
+      participantType: raw.type,
+      status: raw.status,
+      approval: {
+        approvedBy: isApproved ? (adminUser?._id ?? null) : null,
+        approvedAt,
+        rejectedBy: isRejected ? (adminUser?._id ?? null) : null,
+        rejectedAt: isRejected ? new Date() : null,
+        rejectionReason: isRejected ? "Seed rejected" : null,
+      },
+      formSnapshot: {
+        version: eventDoc.registrationForm?.version ?? 1,
+        fields: snapshotFields,
+      },
+      answers,
+      companySnapshot: {
+        companyId: companyDocs[raw.coIdx]!._id,
+        name: companyDocs[raw.coIdx]!.name,
+      },
+      industrySnapshot: {
+        refId: raw.ind._id,
+        name: raw.ind.name,
+      },
+      jobTitleSnapshot: {
+        refId: raw.jt._id,
+        name: raw.jt.name,
+      },
+      citySnapshot: {
+        refId: raw.city._id,
+        name: raw.city.name,
+      },
+      ticket: qrCode
+        ? {
+            qrCode,
+            issuedAt: approvedAt,
+            reissueCount: 0,
+            isActive: true,
+          }
+        : null,
+      checkIn: {
+        isAttended: isCheckedIn,
+        checkedInAt: isCheckedIn ? eventDoc.eventDate : null,
+        checkedInBy: isCheckedIn ? (adminUser?._id ?? null) : null,
+        scanMethod: "qr",
+        notes: null,
+      },
+    };
+  });
+
+  const customFieldIds = new Set(Object.values(CUSTOM_FIELD_IDS));
+  const surveyTypeMap: Record<string, string> = {
+    text: "text",
+    email: "text",
+    phone: "text",
+    number: "number",
+    textarea: "textarea",
+    radio: "radio",
+    checkbox: "checkbox",
+    select: "select",
+    date: "date",
+  };
+
+  const surveyResponses = registrations
+    .map((registration) => {
+      const answers = registration.answers
+        .filter((answer) => customFieldIds.has(answer.fieldId))
+        .map((answer) => {
+          const mappedType = surveyTypeMap[answer.type];
+          if (!mappedType) return null;
+          return {
+            questionId: answer.fieldId,
+            label: answer.label,
+            type: mappedType,
+            value: answer.value,
+          };
+        })
+        .filter(Boolean) as Array<{
+        questionId: string;
+        label: string;
+        type: string;
+        value: unknown;
+      }>;
+
+      return {
+        eventId: eventDoc._id,
+        surveyId: eventDoc.surveyId ?? null,
+        participantId: registration.participantId,
+        answers,
+        submittedAt: new Date(),
+      };
+    })
+    .filter((response) => response.answers.length > 0);
+
+  await Registration.insertMany(registrations);
+  if (surveyResponses.length > 0) {
+    await SurveyResponse.insertMany(surveyResponses);
+  }
+  console.log(`[SEED] Added participants: ${participantDocs.length}`);
+  console.log(`[SEED] Added registrations: ${registrations.length}`);
+  console.log(`[SEED] Added survey responses: ${surveyResponses.length}`);
+}
+
 async function seed(): Promise<void> {
   await connectDB();
   console.log("\n[SEED] Starting...\n");
@@ -200,12 +530,12 @@ async function seed(): Promise<void> {
   ];
 
   const companyDocs = await Company.insertMany(
-    companiesRaw.map(c => ({
+    companiesRaw.map((c) => ({
       name: c.name,
       normalizedName: c.name.toLowerCase(),
       industry: { masterId: c.ind._id, name: c.ind.name },
       isActive: true,
-    }))
+    })),
   );
   console.log(`[SEED] Companies: ${companyDocs.length}`);
 
@@ -451,6 +781,113 @@ async function seed(): Promise<void> {
       location:    "Aryaduta Medan, Medan",
       status:      "done" as const,
     },
+    {
+      fieldId: CUSTOM_FIELD_IDS.shortText,
+      key: "short_text_q",
+      label: "Pertanyaan Text Singkat",
+      type: "text" as const,
+      order: 9,
+      isFixed: false,
+      placeholder: "Jawaban singkat",
+      validation: { required: true },
+      isActive: true,
+    },
+    {
+      fieldId: CUSTOM_FIELD_IDS.emailAlt,
+      key: "email_q",
+      label: "Email Alternatif",
+      type: "email" as const,
+      order: 10,
+      isFixed: false,
+      validation: { required: true },
+      isActive: true,
+    },
+    {
+      fieldId: CUSTOM_FIELD_IDS.phoneAlt,
+      key: "phone_q",
+      label: "Nomor WhatsApp",
+      type: "phone" as const,
+      order: 11,
+      isFixed: false,
+      validation: { required: true },
+      isActive: true,
+    },
+    {
+      fieldId: CUSTOM_FIELD_IDS.number,
+      key: "number_q",
+      label: "Jumlah Karyawan",
+      type: "number" as const,
+      order: 12,
+      isFixed: false,
+      validation: { required: true },
+      isActive: true,
+    },
+    {
+      fieldId: CUSTOM_FIELD_IDS.textarea,
+      key: "textarea_q",
+      label: "Ceritakan tentang perusahaanmu",
+      type: "textarea" as const,
+      order: 13,
+      isFixed: false,
+      validation: { required: true },
+      isActive: true,
+    },
+    {
+      fieldId: CUSTOM_FIELD_IDS.radio,
+      key: "radio_q",
+      label: "Pilih Paket",
+      type: "radio" as const,
+      order: 14,
+      isFixed: false,
+      options: [
+        { value: "Basic", label: "Basic", isDefault: false },
+        { value: "Pro", label: "Pro", isDefault: false },
+        { value: "Enterprise", label: "Enterprise", isDefault: false },
+      ],
+      validation: { required: true },
+      isActive: true,
+    },
+    {
+      fieldId: CUSTOM_FIELD_IDS.checkbox,
+      key: "checkbox_q",
+      label: "Produk yang digunakan",
+      type: "checkbox" as const,
+      order: 15,
+      isFixed: false,
+      options: [
+        { value: "CRM", label: "CRM", isDefault: false },
+        { value: "ERP", label: "ERP", isDefault: false },
+        { value: "HRIS", label: "HRIS", isDefault: false },
+        { value: "Analytics", label: "Analytics", isDefault: false },
+      ],
+      validation: { required: true },
+      isActive: true,
+    },
+    {
+      fieldId: CUSTOM_FIELD_IDS.select,
+      key: "select_q",
+      label: "Sumber Informasi",
+      type: "select" as const,
+      order: 16,
+      isFixed: false,
+      options: [
+        { value: "instagram", label: "Instagram", isDefault: false },
+        { value: "linkedin", label: "LinkedIn", isDefault: false },
+        { value: "website", label: "Website", isDefault: false },
+      ],
+      validation: { required: true },
+      isActive: true,
+    },
+    {
+      fieldId: CUSTOM_FIELD_IDS.date,
+      key: "date_q",
+      label: "Tanggal Kunjungan",
+      type: "date" as const,
+      order: 17,
+      isFixed: false,
+      validation: { required: false },
+      isActive: true,
+    },
   ];
 
   const eventDocs = await Event.insertMany(
@@ -599,7 +1036,7 @@ async function seed(): Promise<void> {
       identityFingerprint: null,
       notes: null,
       isActive: true,
-    }))
+    })),
   );
   console.log(`[SEED] Super admin participants: ${saParticipantDocs.length}\n`);
 
@@ -776,7 +1213,7 @@ async function seed(): Promise<void> {
   process.exit(0);
 }
 
-seed().catch(err => {
+seed().catch((err) => {
   console.error("[SEED] Fatal error:", err);
   process.exit(1);
 });

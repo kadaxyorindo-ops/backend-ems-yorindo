@@ -32,6 +32,7 @@ apiV1Router.use("/visitor", visitorRoutes);
 apiV1Router.use("/auth", authRouter);
 apiV1Router.use("/communications", communicationRouter);
 apiV1Router.use("/events", eventRouter);
+apiV1Router.use("/analytics", analyticRoutes);
 apiV1Router.use("/users", userRouter);
 apiV1Router.use("/surveys", surveyRouter);
 apiV1Router.use("/analytics", analyticsRouter);

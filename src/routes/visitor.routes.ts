@@ -1,8 +1,14 @@
-import { Router } from 'express';
-import { submitRegistration } from '../controllers/visitorController';
+import { Router } from "express";
+import { submitVisitorRegistration } from "../controllers/visitorController.ts";
+import { validate } from "../middlewares/validate.middleware.ts";
+import { visitorRegistrationBodySchema } from "../validators/visitor.validators.ts";
 
 const router = Router();
 
-router.post('/register', submitRegistration);
+router.post(
+  "/register",
+  validate(visitorRegistrationBodySchema, "body"),
+  submitVisitorRegistration,
+);
 
 export default router;

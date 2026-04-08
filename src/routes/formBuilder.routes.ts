@@ -5,6 +5,8 @@ import {
   getFormBuilderBySlugHandler,
   upsertFormBuilderHandler,
 } from "../controllers/formBuilder.controller.ts";
+import { validate } from "../middlewares/validate.middleware.ts";
+import { formBuilderUpsertBodySchema } from "../validators/formBuilder.validators.ts";
 
 const router = Router();
 

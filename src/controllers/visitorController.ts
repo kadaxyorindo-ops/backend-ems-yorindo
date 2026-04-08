@@ -1,4 +1,4 @@
-﻿import type { Request, Response } from 'express';
+﻿import type { Request, Response, NextFunction } from "express"; // 💡 Wajib di-import
 import City from '../models/City.ts';
 import Company from '../models/Company.ts';
 import Industry from '../models/Industry.ts';
@@ -7,6 +7,7 @@ import Participant from '../models/Participant.ts';
 import Registration from '../models/Registration.ts';
 import SurveyResponse from '../models/SurveyResponse.ts';
 import { Event } from "../models/index.ts";
+import type { VisitorRegistrationBody } from "../validators/visitor.validators.ts";
 
 interface CustomAnswerInput {
   questionId?: string;
@@ -16,36 +17,31 @@ interface CustomAnswerInput {
 }
 
 function normalizeKey(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ");
+  return value.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
 function buildCustomValueMap(input: unknown): Map<string, unknown> {
   const map = new Map<string, unknown>();
   if (!input) return map;
-
   if (Array.isArray(input)) {
     for (const item of input as CustomAnswerInput[]) {
-      if (item?.label) {
-        map.set(normalizeKey(item.label), item.value);
-      }
+      if (item?.label) map.set(normalizeKey(item.label), item.value);
     }
     return map;
   }
-
   if (typeof input === "object") {
     for (const [label, value] of Object.entries(input as Record<string, unknown>)) {
       map.set(normalizeKey(label), value);
     }
   }
-
   return map;
 }
 
-export const submitRegistration = async (req: Request, res: Response): Promise<any> => {
+
+export const submitVisitorRegistration = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
   try {
+    const data = req.body as VisitorRegistrationBody;
+
     const {
       event_id,
       nama_lengkap,
@@ -57,7 +53,38 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       jenis_industri,
       jabatan,
       survei_result
-    } = req.body;
+    } = data;
+
+    const event = await Event.findById(event_id).lean();
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
+    }
+
+    const queryKondisi = [];
+    if (email_perusahaan) queryKondisi.push({ companyEmail: email_perusahaan });
+    if (email_pribadi) queryKondisi.push({ personalEmail: email_pribadi });
+    if (no_hp) queryKondisi.push({ phone: no_hp });
+
+    if (queryKondisi.length > 0) {
+      const existingParticipants = await Participant.find({ $or: queryKondisi });
+
+      for (const p of existingParticipants) {
+        const isAlreadyRegistered = await Registration.findOne({
+          eventId: event_id,
+          $or: [
+            { participantId: p._id },
+            { participantId: String(p._id) }
+          ]
+        });
+
+        if (isAlreadyRegistered) {
+          return res.status(409).json({ 
+            success: false, 
+            message: "Email atau nomor HP Anda sudah terdaftar untuk event ini." 
+          });
+        }
+      }
+    }
 
     const city = await City.findOneAndUpdate(
       { name: lokasi_perusahaan }, 
@@ -83,7 +110,6 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
       { new: true, upsert: true }
     );
 
-
     const participant = await Participant.findOneAndUpdate(
       { companyEmail: email_perusahaan }, 
       {
@@ -92,66 +118,55 @@ export const submitRegistration = async (req: Request, res: Response): Promise<a
         personalEmail: email_pribadi,
         companyEmail: email_perusahaan,
         phone: no_hp,
-        company: { companyId: company._id, name: company.name },
-        industry: { refId: industry._id, name: industry.name },
-        jobTitle: { refId: jobTitle._id, name: jobTitle.name },
-        city: { refId: city._id, name: city.name }
+        company: { companyId: company!._id, name: company!.name },
+        industry: { refId: industry!._id, name: industry!.name },
+        jobTitle: { refId: jobTitle!._id, name: jobTitle!.name },
+        city: { refId: city!._id, name: city!.name }
       },
       { new: true, upsert: true }
     );
 
     const registration = await Registration.findOneAndUpdate(
-      { eventId: event_id, participantId: participant._id },
-      {
-        eventId: event_id,
-        participantId: participant._id,
-        status: 'pending',
-        companySnapshot:  { companyId: company._id,  name: company.name },
-        industrySnapshot: { refId: industry._id,     name: industry.name },
-        jobTitleSnapshot: { refId: jobTitle._id,     name: jobTitle.name },
-        citySnapshot:     { refId: city._id,         name: city.name },
+      { eventId: event_id, participantId: participant!._id },
+      { 
+        eventId: event_id, 
+        participantId: participant!._id, 
+        status: 'pending' 
       },
       { new: true, upsert: true }
     );
-
-    const event = await Event.findById(event_id).lean();
-    if (!event) {
-      return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
-    }
 
     const answersMap = buildCustomValueMap(survei_result);
 
     if (answersMap.size > 0) {
       const existingSurvey = await SurveyResponse.findOne({
         eventId: event_id,
-        participantId: participant._id,
+        participantId: participant!._id,
       });
 
       if (!existingSurvey) {
         const survey = new SurveyResponse({
           eventId: event_id,
           surveyId: event.surveyId || null, 
-          participantId: participant._id,
-          registrationId: registration._id,
+          participantId: participant!._id,
+          registrationId: registration!._id,
           answers: Object.fromEntries(answersMap)
         });
         
         await survey.save();
-        console.log("Survey Response berhasil disimpan ke MongoDB!");
       }
     }
 
     return res.status(201).json({
       success: true,
-      message: "Proses Registrasi Berhasil Disimpan ke Semua Database!",
+      message: "Proses registrasi berhasil!",
       data: {
-        participant_id: participant._id,
-        registration_id: registration._id 
+        participant_id: participant!._id,
+        registration_id: registration!._id 
       }
     });
 
-  } catch (error: any) {
-    console.error("Error Registrasi:", error);
-    return res.status(500).json({ success: false, message: "Terjadi kesalahan server", error: error.message });
+  } catch (error) {
+    next(error);
   }
 };

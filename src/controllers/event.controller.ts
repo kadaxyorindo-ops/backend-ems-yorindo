@@ -15,6 +15,7 @@ import type { Request, Response, NextFunction } from "express";
 import type { GetAllEventsQuery } from "../validators/event.validators.ts";
 import {
   getAllEvents,
+  getEventById,
   getEventStats,
   createEvent,
   updateEvent,
@@ -45,6 +46,33 @@ export async function handleGetAllEvents(
     const query = res.locals.parsed.query as GetAllEventsQuery;
     const result = await getAllEvents(query);
     sendSuccess(res, 200, "Events fetched successfully", result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/events/:id
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a single event document by its id.
+ */
+export async function handleGetEventById(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = res.locals.parsed.params as EventParams;
+    const event = await getEventById(id);
+
+    if (!event) {
+      sendError(res, 404, "Event not found");
+      return;
+    }
+
+    sendSuccess(res, 200, "Event fetched successfully", event);
   } catch (error) {
     next(error);
   }

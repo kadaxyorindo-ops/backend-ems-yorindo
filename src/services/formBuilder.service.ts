@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Types } from "mongoose";
 import { Event, Industry } from "../models/index.ts";
 import { STATUS } from "../models/constants/enums.ts";
 import type { FieldType } from "../models/constants/enums.ts";
@@ -106,9 +107,9 @@ function buildField(
     type: type as FieldType,
     order,
     isFixed,
-    placeholder: input.placeholder,
-    helpText: input.helpText,
-    options,
+    ...(input.placeholder === undefined ? {} : { placeholder: input.placeholder }),
+    ...(input.helpText === undefined ? {} : { helpText: input.helpText }),
+    ...(options === undefined ? {} : { options }),
     validation: {
       required: input.required ?? false,
     },
@@ -131,19 +132,38 @@ function mapFieldsForView(
   return fields.map((field) => mapFieldForView(field));
 }
 
-async function buildFixedFields(): Promise<FormBuilderFieldInput[]> {
+async function fetchIndustryOptionValues(
+  requireNonEmpty: boolean,
+): Promise<string[]> {
   const industries = await Industry.find()
     .sort({ name: 1 })
     .lean<{ name?: string | null }[]>();
 
-  const industryOptions = industries
+  const values = industries
     .map((industry) => industry.name?.trim())
     .filter((name): name is string => Boolean(name));
 
-  ensure(
-    industryOptions.length > 0,
-    "Industry options are not available",
+  if (requireNonEmpty) {
+    ensure(values.length > 0, "Industry options are not available");
+  }
+
+  return values;
+}
+
+function applyIndustryOptionsToFields(
+  fields: IRegistrationField[],
+  industryOptionValues: string[],
+): IRegistrationField[] {
+  const options = normalizeOptions(industryOptionValues);
+  if (!options || options.length === 0) return fields;
+
+  return fields.map((field) =>
+    field.key === "industry" ? { ...field, options } : field,
   );
+}
+
+async function buildFixedFields(): Promise<FormBuilderFieldInput[]> {
+  const industryOptions = await fetchIndustryOptionValues(true);
 
   return DEFAULT_FIXED_FIELDS.map((field) =>
     field.key === "industry"
@@ -253,7 +273,12 @@ export async function getFormBuilderBySlug(
   const event = await Event.findOne({ slug }).lean();
   if (!event) return null;
 
-  const fields = event.registrationForm?.fields ?? [];
+  const rawFields = event.registrationForm?.fields ?? [];
+  const industryOptionValues = await fetchIndustryOptionValues(false);
+  const fields =
+    industryOptionValues.length > 0
+      ? applyIndustryOptionsToFields(rawFields, industryOptionValues)
+      : rawFields;
 
   return {
     event: {
@@ -272,5 +297,50 @@ export async function getFormBuilderBySlug(
     customQuestions: mapFieldsForView(
       fields.filter((field) => !field.isFixed),
     ),
+  };
+}
+
+export async function getFormBuilderByIndustry(
+  industryId: string,
+): Promise<FormBuilderView | null> {
+  const industryObjectId = new Types.ObjectId(industryId);
+
+  const baseMatch = {
+    "industry.refId": industryObjectId,
+    "registrationForm.fields.0": { $exists: true },
+  };
+
+  const publishedEvent = await Event.findOne({
+    ...baseMatch,
+    "registrationForm.publishedAt": { $ne: null },
+  })
+    .sort({ "registrationForm.publishedAt": -1, updatedAt: -1 })
+    .lean();
+
+  const event =
+    publishedEvent ??
+    (await Event.findOne(baseMatch)
+      .sort({ updatedAt: -1 })
+      .lean());
+
+  if (!event) return null;
+
+  const fields = event.registrationForm?.fields ?? [];
+
+  return {
+    event: {
+      id: event._id.toString(),
+      title: event.title,
+      eventDate: event.eventDate,
+      location: event.location ?? null,
+      status: event.status,
+      slug: event.slug,
+    },
+    eventId: event._id.toString(),
+    formName: event.registrationForm?.name ?? null,
+    version: event.registrationForm?.version ?? 1,
+    publishedAt: event.registrationForm?.publishedAt ?? null,
+    fixedFields: mapFieldsForView(fields.filter((field) => field.isFixed)),
+    customQuestions: mapFieldsForView(fields.filter((field) => !field.isFixed)),
   };
 }

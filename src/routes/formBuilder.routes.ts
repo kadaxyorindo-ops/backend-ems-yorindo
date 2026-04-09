@@ -2,21 +2,40 @@ import { Router } from "express";
 import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
 import {
   getFormBuilderHandler,
+  getFormBuilderByIndustryHandler,
   getFormBuilderBySlugHandler,
   upsertFormBuilderHandler,
 } from "../controllers/formBuilder.controller.ts";
 import { validate } from "../middlewares/validate.middleware.ts";
-import { formBuilderUpsertBodySchema } from "../validators/formBuilder.validators.ts";
+import {
+  formBuilderEventParamsSchema,
+  formBuilderIndustryParamsSchema,
+  formBuilderSlugParamsSchema,
+  formBuilderUpsertBodySchema,
+} from "../validators/formBuilder.validators.ts";
 
 const router = Router();
 
-// GET /events/:eventId — staff preview; requires events:view
-router.get("/events/:eventId", requireAuth, requirePermission("events:view"), getFormBuilderHandler);
-
-// GET /slug/:slug — public; participants load the form without a token
-router.get("/slug/:slug", getFormBuilderBySlugHandler);
-
-// PUT /events/:eventId — staff write; requires events:edit
-router.put("/events/:eventId", requireAuth, requirePermission("events:edit"), upsertFormBuilderHandler);
+router.get(
+  "/events/:eventId",
+  validate(formBuilderEventParamsSchema, "params"),
+  getFormBuilderHandler,
+);
+router.get(
+  "/industries/:industryId",
+  validate(formBuilderIndustryParamsSchema, "params"),
+  getFormBuilderByIndustryHandler,
+);
+router.get(
+  "/slug/:slug",
+  validate(formBuilderSlugParamsSchema, "params"),
+  getFormBuilderBySlugHandler,
+);
+router.put(
+  "/events/:eventId",
+  validate(formBuilderEventParamsSchema, "params"),
+  validate(formBuilderUpsertBodySchema, "body"),
+  upsertFormBuilderHandler,
+);
 
 export default router;

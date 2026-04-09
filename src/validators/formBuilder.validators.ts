@@ -5,6 +5,7 @@
 
 import { z } from "zod";
 import { STATUS } from "../models/constants/enums.ts";
+import { objectIdSchema } from "./event.validators.ts";
 
 const FIELD_TYPE_INPUT = [
   ...STATUS.FIELD_TYPE,
@@ -50,3 +51,25 @@ export const formBuilderUpsertBodySchema = z
   }));
 
 export type FormBuilderUpsertBody = z.infer<typeof formBuilderUpsertBodySchema>;
+
+// --- URL params ---
+
+export const formBuilderEventParamsSchema = z.object({
+  eventId: objectIdSchema,
+});
+
+export type FormBuilderEventParams = z.infer<typeof formBuilderEventParamsSchema>;
+
+export const formBuilderIndustryParamsSchema = z.object({
+  industryId: objectIdSchema,
+});
+
+export type FormBuilderIndustryParams = z.infer<
+  typeof formBuilderIndustryParamsSchema
+>;
+
+export const formBuilderSlugParamsSchema = z.object({
+  slug: z.string().trim().min(1),
+});
+
+export type FormBuilderSlugParams = z.infer<typeof formBuilderSlugParamsSchema>;

@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { AuditLog, Otp, User } from "../models/index.ts";
 import { STATUS, type SystemRole } from "../models/constants/enums.ts";
+import { DEFAULT_ROLE_PERMISSIONS } from "../models/constants/rolePermissions.ts";
 import { env } from "../config/env.ts";
 import { sendLoginOtpEmail } from "./email.service.ts";
 import { signAccessToken } from "../utils/jwt.ts";
@@ -216,6 +217,20 @@ export async function verifyLoginOtp(
 
   otpRecord.isUsed = true;
   await otpRecord.save();
+
+  // Backfill permissions for legacy accounts created before the default
+  // permissions system existed. Only applies to non-admin roles with an
+  // empty permissions array — super_admin and admin bypass checks anyway.
+  if (
+    user.permissions.length === 0 &&
+    user.role !== "super_admin" &&
+    user.role !== "admin"
+  ) {
+    const defaults = DEFAULT_ROLE_PERMISSIONS[user.role];
+    if (defaults) {
+      user.permissions = defaults;
+    }
+  }
 
   user.lastLoginAt = new Date();
   await user.save();

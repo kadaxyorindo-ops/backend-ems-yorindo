@@ -7,6 +7,7 @@ import type {
   UpdateUserBody,
   UserParams,
 } from "../validators/user.validators";
+import { DEFAULT_ROLE_PERMISSIONS } from "../models/constants/rolePermissions.ts";
 
 export async function handleGetUsers(
   _req: Request,
@@ -65,6 +66,7 @@ export async function handleCreateUser(
       email:            body.email,
       role:             body.role,
       organizationName: body.organizationName,
+      permissions:      DEFAULT_ROLE_PERMISSIONS[body.role] ?? [],
     });
 
     sendSuccess(res, 201, "User created successfully", user.toObject());
@@ -84,8 +86,11 @@ export async function handleUpdateUser(
 
     const update: Record<string, unknown> = {};
     if (body.name             !== undefined) update.name             = body.name;
-    if (body.role             !== undefined) update.role             = body.role;
     if (body.organizationName !== undefined) update.organizationName = body.organizationName;
+    if (body.role             !== undefined) {
+      update.role        = body.role;
+      update.permissions = DEFAULT_ROLE_PERMISSIONS[body.role] ?? [];
+    }
 
     const user = await User.findByIdAndUpdate(
       id,

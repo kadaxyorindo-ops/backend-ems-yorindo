@@ -20,6 +20,7 @@ import {
   createEvent,
   updateEvent,
   deleteEvent,
+  hardDeleteEvent,
 } from "../services/event.service.ts";
 import { sendSuccess, sendError } from "../utils/apiResponse.ts";
 import type {
@@ -191,6 +192,35 @@ export async function handleDeleteEvent(
     }
 
     sendSuccess(res, 200, "Event cancelled successfully", event);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /api/v1/events/:id/hard
+// ---------------------------------------------------------------------------
+
+/**
+ * Permanently deletes an event and all its linked registrations.
+ * This is irreversible — intended for draft/test cleanup only.
+ */
+export async function handleHardDeleteEvent(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = res.locals.parsed.params as EventParams;
+
+    const deleted = await hardDeleteEvent(id);
+
+    if (!deleted) {
+      sendError(res, 404, "Event not found");
+      return;
+    }
+
+    sendSuccess(res, 200, "Event permanently deleted", null);
   } catch (error) {
     next(error);
   }

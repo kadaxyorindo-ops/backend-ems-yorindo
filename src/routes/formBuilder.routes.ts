@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
 import {
   getFormBuilderHandler,
   getFormBuilderByIndustryHandler,

@@ -15,10 +15,10 @@ import type { IRegistrationField } from "../models/schemas/sub/registration-fiel
 import type { VisitorRegistrationBody } from "../validators/visitor.validators.ts";
 
 interface CustomAnswerInput {
-  fieldId?: string;
-  label?: string;
-  type?: string;
-  value: unknown;
+  fieldId?: string | undefined;
+  label?: string | undefined;
+  type?: string | undefined;
+  value: unknown | undefined;
 }
 
 type CustomAnswerPayload = Array<CustomAnswerInput> | Record<string, unknown>;
@@ -160,9 +160,18 @@ export async function submitVisitorRegistration(
   const registration = await Registration.findOneAndUpdate(
     { eventId: event_id, participantId: participant._id },
     {
-      eventId: event_id,
-      participantId: participant._id,
-      status: "pending",
+      $set: {
+        companySnapshot: { companyId: company._id, name: company.name },
+        industrySnapshot: { refId: industry._id, name: industry.name },
+        jobTitleSnapshot: { refId: jobTitle._id, name: jobTitle.name },
+        citySnapshot: { refId: city._id, name: city.name },
+      },
+      $setOnInsert: {
+        eventId: event_id,
+        participantId: participant._id,
+        participantType: "participant",
+        status: "pending",
+      },
     },
     { new: true, upsert: true },
   );

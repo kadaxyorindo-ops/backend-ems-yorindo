@@ -9,7 +9,21 @@
 
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
+import {
+  requireAuth,
+  requirePermission,
+} from "../middlewares/auth.middleware.ts";
+import { validate } from "../middlewares/validate.middleware.ts";
+import {
+  analyticsEventParamsSchema,
+  analyticsOverviewQuerySchema,
+  analyticsInsightsQuerySchema,
+} from "../validators/analytic.validators.ts";
+import {
+  handleGetEventAnalyticsOverview,
+  handleGetEventParticipantAnalytics,
+  handleGetEventAnalyticsInsights,
+} from "../controllers/event-analytic.controller.ts";
 
 const router = Router();
 
@@ -21,9 +35,41 @@ function notImplemented(_req: Request, res: Response) {
 }
 
 // GET / — analytics overview
-router.get("/", requireAuth, requirePermission("analytics:view"), notImplemented);
+router.get(
+  "/",
+  requireAuth,
+  requirePermission("analytics:view"),
+  notImplemented,
+);
 
 // GET /events/:eventId — per-event analytics
-router.get("/events/:eventId", requireAuth, requirePermission("analytics:view"), notImplemented);
+router.get(
+  "/events/:eventId",
+  requireAuth,
+  requirePermission("analytics:view"),
+  notImplemented,
+);
+
+// ============= ROUTE EVENT ANALYTICS ====================
+
+router.get(
+  "/events/:eventId/participants/summary",
+  validate(analyticsEventParamsSchema, "params"),
+  handleGetEventParticipantAnalytics,
+);
+
+router.get(
+  "/events/:eventId/overview",
+  validate(analyticsEventParamsSchema, "params"),
+  validate(analyticsOverviewQuerySchema, "query"),
+  handleGetEventAnalyticsOverview,
+);
+
+router.get(
+  "/events/:eventId/insights",
+  validate(analyticsEventParamsSchema, "params"),
+  validate(analyticsInsightsQuerySchema, "query"),
+  handleGetEventAnalyticsInsights,
+);
 
 export default router;

@@ -43,3 +43,7 @@ export { AuditLog } from "./schemas/audit-log.schema.js";
 
 // --- Communication ---
 export { CommunicationCampaign } from "./schemas/communication-campaign.schema.js";
+
+// --- Analytics (cached AI insight) ---
+export { EventAnalyticInsightCache } from "./schemas/event-analytic-insight-cache.schema.js";
+export { EventAiInsightCache } from "./schemas/event-ai-insight-cache.schema.js";

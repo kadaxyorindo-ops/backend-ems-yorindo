@@ -3,6 +3,7 @@ import { validate } from "../middlewares/validate.middleware.ts";
 import {
   analyticsEventParamsSchema,
   analyticsOverviewQuerySchema,
+  analyticsInsightsQuerySchema,
 } from "../validators/analytic.validators.ts";
 import {
   handleGetEventAnalyticsOverview,
@@ -28,7 +29,7 @@ router.get(
 router.get(
   "/events/:eventId/insights",
   validate(analyticsEventParamsSchema, "params"),
-  validate(analyticsOverviewQuerySchema, "query"),
+  validate(analyticsInsightsQuerySchema, "query"),
   handleGetEventAnalyticsInsights,
 );
 

@@ -1,17 +1,49 @@
 import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import axios from 'axios';
-import SurveyResponse from '../models/SurveyResponse.ts';
-import { Event } from '../models/index.ts';
+import { Event, EventAiInsightCache, SurveyResponse } from "../models/index.ts";
+
+function coerceRefresh(value: unknown): boolean {
+  if (value === undefined || value === null || value === "") return false;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return ["1", "true", "yes", "y"].includes(normalized);
+  }
+  return false;
+}
 
 export const generateEventAIInsight = async (req: Request, res: Response): Promise<any> => {
   try {
     const eventId = (req.params.eventId || req.params.id) as string;
+    const refresh = coerceRefresh(req.query.refresh);
 
     // 1. Validasi Event
     const event = await Event.findById(eventId).lean();
     if (!event) {
       return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
+    }
+
+    if (!refresh) {
+      const cached = await EventAiInsightCache.findOne({
+        eventId: new mongoose.Types.ObjectId(eventId),
+      }).lean();
+
+      if (cached?.insight) {
+        return res.status(200).json({
+          success: true,
+          message: "AI Insight fetched (cached)",
+          eventId: eventId,
+          data: {
+            insight: cached.insight,
+          },
+          meta: {
+            cached: true,
+            generatedAt: cached.generatedAt,
+          },
+        });
+      }
     }
 
     // 2. Ambil Data Survey Mentah (AI LLM sangat pintar membaca JSON mentah)
@@ -78,6 +110,19 @@ export const generateEventAIInsight = async (req: Request, res: Response): Promi
 
     const aiInsightText = aiResponse.data.choices[0].message.content;
 
+    const generatedAt = new Date();
+
+    await EventAiInsightCache.findOneAndUpdate(
+      { eventId: new mongoose.Types.ObjectId(eventId) },
+      {
+        $set: {
+          insight: aiInsightText,
+          generatedAt,
+        },
+      },
+      { upsert: true },
+    );
+
     // 5. Kembalikan Hasilnya ke Frontend
     return res.status(200).json({
       success: true,
@@ -85,7 +130,11 @@ export const generateEventAIInsight = async (req: Request, res: Response): Promi
       eventId: eventId,
       data: {
           insight: aiInsightText
-      }
+      },
+      meta: {
+        cached: false,
+        generatedAt,
+      },
     });
 
   } catch (error: any) {

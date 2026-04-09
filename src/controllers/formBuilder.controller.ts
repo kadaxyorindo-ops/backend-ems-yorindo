@@ -1,29 +1,25 @@
 import type { Request, Response, NextFunction } from "express";
-import { Types } from "mongoose";
 import {
   getFormBuilderByEvent,
+  getFormBuilderByIndustry,
   getFormBuilderBySlug,
   upsertFormBuilder,
 } from "../services/formBuilder.service.ts";
 import { sendError, sendSuccess } from "../utils/apiResponse.ts";
-import type { FormBuilderUpsertBody } from "../validators/formBuilder.validators.ts";
-
-function isValidObjectId(id: string): boolean {
-  return Types.ObjectId.isValid(id);
-}
+import type {
+  FormBuilderEventParams,
+  FormBuilderIndustryParams,
+  FormBuilderSlugParams,
+  FormBuilderUpsertBody,
+} from "../validators/formBuilder.validators.ts";
 
 export async function getFormBuilderHandler(
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
-    const eventId = req.params.eventId as string;
-
-    if (!eventId || !isValidObjectId(eventId)) {
-      sendError(res, 400, "Invalid eventId");
-      return;
-    }
+    const { eventId } = res.locals.parsed.params as FormBuilderEventParams;
 
     const data = await getFormBuilderByEvent(eventId);
     if (!data) {
@@ -38,20 +34,23 @@ export async function getFormBuilderHandler(
 }
 
 export async function upsertFormBuilderHandler(
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { eventId } = req.params;
+    const { eventId } = res.locals.parsed.params as FormBuilderEventParams;
     const payload = res.locals.parsed.body as FormBuilderUpsertBody;
 
-    if (!eventId || !isValidObjectId(eventId)) {
-      sendError(res, 400, "Invalid eventId");
-      return;
-    }
+    const payloadForService = {
+      ...(payload.formName === undefined ? {} : { formName: payload.formName }),
+      ...(payload.customQuestions === undefined
+        ? {}
+        : { customQuestions: payload.customQuestions }),
+      ...(payload.publish === undefined ? {} : { publish: payload.publish }),
+    } as const;
 
-    const data = await upsertFormBuilder(eventId, payload);
+    const data = await upsertFormBuilder(eventId, payloadForService as any);
     if (!data) {
       sendError(res, 404, "Event not found");
       return;
@@ -64,21 +63,36 @@ export async function upsertFormBuilderHandler(
 }
 
 export async function getFormBuilderBySlugHandler(
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { slug } = req.params;
-
-    if (!slug || typeof slug !== "string") {
-      sendError(res, 400, "Invalid slug");
-      return;
-    }
+    const { slug } = res.locals.parsed.params as FormBuilderSlugParams;
 
     const data = await getFormBuilderBySlug(slug);
     if (!data) {
       sendError(res, 404, "Event not found");
+      return;
+    }
+
+    sendSuccess(res, 200, "form builder fetched", data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getFormBuilderByIndustryHandler(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { industryId } = res.locals.parsed.params as FormBuilderIndustryParams;
+
+    const data = await getFormBuilderByIndustry(industryId);
+    if (!data) {
+      sendError(res, 404, "Form for this industry not found");
       return;
     }
 

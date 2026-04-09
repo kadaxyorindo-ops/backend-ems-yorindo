@@ -23,3 +23,22 @@ export const analyticsOverviewQuerySchema = z.object({
 export type AnalyticsOverviewQuery = z.infer<
   typeof analyticsOverviewQuerySchema
 >;
+
+function coerceRefresh(value: unknown): boolean {
+  if (value === undefined || value === null || value === "") return false;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return ["1", "true", "yes", "y"].includes(normalized);
+  }
+  return false;
+}
+
+export const analyticsInsightsQuerySchema = analyticsOverviewQuerySchema.extend({
+  refresh: z.preprocess(coerceRefresh, z.boolean()).optional().default(false),
+});
+
+export type AnalyticsInsightsQuery = z.infer<
+  typeof analyticsInsightsQuerySchema
+>;

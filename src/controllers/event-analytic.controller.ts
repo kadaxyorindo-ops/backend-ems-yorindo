@@ -8,6 +8,7 @@ import { sendError, sendSuccess } from "../utils/apiResponse.ts";
 import type {
   AnalyticsEventParams,
   AnalyticsOverviewQuery,
+  AnalyticsInsightsQuery,
 } from "../validators/analytic.validators.ts";
 import {
   getEventParticipantAnalytics,
@@ -63,8 +64,11 @@ export async function handleGetEventAnalyticsInsights(
 ): Promise<void> {
   try {
     const { eventId } = res.locals.parsed.params as AnalyticsEventParams;
-    const { month } = res.locals.parsed.query as AnalyticsOverviewQuery;
-    const result = await getEventAnalyticsInsights(eventId, month);
+    const { month, refresh } = res.locals.parsed
+      .query as AnalyticsInsightsQuery;
+    const result = await getEventAnalyticsInsights(eventId, month, {
+      refresh,
+    });
 
     if (!result) {
       sendError(res, 404, "Event not found");

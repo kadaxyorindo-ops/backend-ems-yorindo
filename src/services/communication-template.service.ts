@@ -1,4 +1,5 @@
 import { env } from "../config/env.ts";
+import { YORINDO_LOGO_CID } from "./email.service.ts";
 
 export const COMMUNICATION_EMAIL_TEMPLATE_IDS = [
   "executive_brief",
@@ -49,7 +50,8 @@ const TEMPLATE_DEFINITIONS: Record<
   event_spotlight: {
     id: "event_spotlight",
     name: "Event Spotlight",
-    description: "More expressive card layout for campaign-style announcements.",
+    description:
+      "More expressive card layout for campaign-style announcements.",
     accent: "#d97706",
   },
   minimal_notice: {
@@ -99,8 +101,10 @@ function normalizePreviewText(
     return directValue;
   }
 
-  const fallback = (bodyText?.trim() || stripHtml(bodyHtml)).slice(0, 140).trim();
-  return fallback || "Update terbaru dari tim Yorindo EMS.";
+  const fallback = (bodyText?.trim() || stripHtml(bodyHtml))
+    .slice(0, 140)
+    .trim();
+  return fallback || "Update from Yorindo EMS.";
 }
 
 function formatEventDate(value?: Date | string | null) {
@@ -138,45 +142,69 @@ function buildEmailShell(params: {
   const safeEyebrow = escapeHtml(params.eyebrow);
   const safeHeading = escapeHtml(params.heading);
   const safePreviewText = escapeHtml(params.previewText);
-  const safeEventTitle = params.eventTitle ? escapeHtml(params.eventTitle) : null;
+  const safeEventTitle = params.eventTitle
+    ? escapeHtml(params.eventTitle)
+    : null;
   const safeEventDate = params.eventDateLabel
     ? escapeHtml(params.eventDateLabel)
     : null;
   const safeFooter = escapeHtml(params.footerNote);
 
   return `<!doctype html>
-<html lang="id">
-  <body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a;">
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>${safeHeading}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
       ${safePreviewText}
     </div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px;background:#f8fafc;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f1f5f9;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;${params.cardStyle}">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;margin:48px 16px 40px;">
             <tr>
-              <td style="${params.headerStyle}">
-                <p style="margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:${params.accent};">
+              <td align="center" style="padding:28px 40px;background-color:#0c1b45;">
+                <div style="display:inline-block;background-color:#ffffff;border-radius:14px;padding:14px 28px;">
+                  <img src="cid:${YORINDO_LOGO_CID}" alt="Yorindo Communication" width="140" style="display:block;width:140px;max-width:140px;height:auto;border:0;" />
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 40px 0;">
+                <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#64748b;line-height:1;">
                   ${safeEyebrow}
                 </p>
-                <h1 style="margin:0;font-size:28px;line-height:1.2;color:#0f172a;">
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px 40px 8px;">
+                <h1 style="margin:0 0 14px;font-size:24px;line-height:1.25;font-weight:700;color:#0f172a;">
                   ${safeHeading}
                 </h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 40px;font-size:15px;line-height:1.8;color:#475569;">
+                ${params.bodyHtml}
               </td>
             </tr>
             ${
               safeEventTitle || safeEventDate
                 ? `<tr>
-              <td style="padding:0 32px 0;">
-                <div style="border:1px dashed #cbd5e1;border-radius:18px;background:#f8fafc;padding:16px 18px;">
+              <td style="padding:20px 40px 0;">
+                <div style="border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;padding:16px 18px;">
                   ${
                     safeEventTitle
-                      ? `<p style="margin:0;font-size:15px;font-weight:700;color:#0f172a;">${safeEventTitle}</p>`
+                      ? `<p style="margin:0;font-size:14px;font-weight:700;color:#0f172a;">${safeEventTitle}</p>`
                       : ""
                   }
                   ${
                     safeEventDate
-                      ? `<p style="margin:${safeEventTitle ? "6px" : "0"} 0 0;font-size:13px;line-height:1.6;color:#475569;">${safeEventDate}</p>`
+                      ? `<p style="margin:${safeEventTitle ? "8px" : "0"} 0 0;font-size:13px;line-height:1.6;color:#475569;">${safeEventDate}</p>`
                       : ""
                   }
                 </div>
@@ -185,15 +213,37 @@ function buildEmailShell(params: {
                 : ""
             }
             <tr>
-              <td style="${params.bodyStyle}">
-                ${params.bodyHtml}
+              <td style="padding:0 40px 28px;">
+                <p style="margin:0;font-size:13px;line-height:1.7;color:#94a3b8;">
+                  ${safeFooter}
+                </p>
               </td>
             </tr>
             <tr>
-              <td style="padding:0 32px 32px;">
-                <p style="margin:0;font-size:13px;line-height:1.8;color:#64748b;">
-                  ${safeFooter}
-                </p>
+              <td style="border-top:1px solid #f1f5f9;padding:18px 40px;background-color:#f8fafc;">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td>
+                      <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.6;">Sent to the email address registered with Yorindo EMS.</p>
+                    </td>
+                    <td align="right" style="white-space:nowrap;">
+                      <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#cbd5e1;">Yorindo EMS</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0;font-size:0;line-height:0;">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="height:5px;background-color:#6B3FA0;font-size:1px;line-height:1px;">&nbsp;</td>
+                    <td style="height:5px;background-color:#2B5EAB;font-size:1px;line-height:1px;">&nbsp;</td>
+                    <td style="height:5px;background-color:#43B049;font-size:1px;line-height:1px;">&nbsp;</td>
+                    <td style="height:5px;background-color:#EA4C1B;font-size:1px;line-height:1px;">&nbsp;</td>
+                    <td style="height:5px;background-color:#F5A623;font-size:1px;line-height:1px;">&nbsp;</td>
+                  </tr>
+                </table>
               </td>
             </tr>
           </table>
@@ -222,18 +272,17 @@ export function renderCommunicationEmail(
   const template = getCommunicationEmailTemplate(input.templateId);
   const normalizedSubject = input.subject.trim();
   const normalizedBodyHtml = sanitizeMessageHtml(input.bodyHtml);
-  const normalizedBodyText = input.bodyText?.trim() || stripHtml(normalizedBodyHtml);
+  const normalizedBodyText =
+    input.bodyText?.trim() || stripHtml(normalizedBodyHtml);
   const normalizedPreviewText = normalizePreviewText(
     input.previewText,
     normalizedBodyText,
     normalizedBodyHtml,
   );
-  const safeRecipientName = escapeHtml(input.recipientName);
   const safeSenderName = escapeHtml(env.mailFromName);
   const eventDateLabel = formatEventDate(input.eventDate);
   const eventTitle = input.eventTitle?.trim() || null;
   const messageBody = `<div style="font-size:15px;line-height:1.85;color:#334155;">
-    <p style="margin:0 0 18px;">Halo ${safeRecipientName},</p>
     ${normalizedBodyHtml}
   </div>`;
 
@@ -248,7 +297,7 @@ export function renderCommunicationEmail(
       eventTitle,
       eventDateLabel,
       bodyHtml: messageBody,
-      footerNote: `Pesan ini dikirim oleh ${safeSenderName}. Jika Anda menerima email ini karena terdaftar pada event terkait, simpan email ini sebagai referensi terbaru.`,
+      footerNote: `Email notifications are sent when there are updates to your registered events.`,
       cardStyle:
         "background:#fffaf0;border:1px solid #fdba74;border-radius:28px;overflow:hidden;",
       headerStyle:
@@ -264,7 +313,7 @@ export function renderCommunicationEmail(
       eventTitle,
       eventDateLabel,
       bodyHtml: messageBody,
-      footerNote: `Pesan ini dikirim otomatis melalui ${safeSenderName}.`,
+      footerNote: `This message was sent automatically from ${safeSenderName}.`,
       cardStyle:
         "background:#ffffff;border:1px solid #cbd5e1;border-radius:18px;overflow:hidden;",
       headerStyle: "padding:28px 32px 18px;background:#ffffff;",
@@ -279,7 +328,7 @@ export function renderCommunicationEmail(
       eventTitle,
       eventDateLabel,
       bodyHtml: messageBody,
-      footerNote: `Pesan ini dikirim oleh ${safeSenderName}. Pastikan Anda menyimpan informasi ini untuk pembaruan event berikutnya.`,
+      footerNote: `Keep this message for future reference regarding your registered event.`,
       cardStyle:
         "background:#ffffff;border:1px dashed #94a3b8;border-radius:24px;overflow:hidden;",
       headerStyle:
@@ -289,11 +338,10 @@ export function renderCommunicationEmail(
   }
 
   const text = [
-    `Halo ${input.recipientName},`,
     normalizedBodyText,
     eventTitle ? `Event: ${eventTitle}` : "",
-    eventDateLabel ? `Tanggal event: ${eventDateLabel}` : "",
-    `Dikirim oleh ${env.mailFromName}.`,
+    eventDateLabel ? `Date: ${eventDateLabel}` : "",
+    `Sent by ${env.mailFromName}.`,
   ]
     .filter(Boolean)
     .join("\n\n");

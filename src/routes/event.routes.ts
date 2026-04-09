@@ -32,7 +32,10 @@ import {
   handleDeleteEvent,
   handleHardDeleteEvent,
 } from "../controllers/event.controller.ts";
-import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
+import {
+  requireAuth,
+  requirePermission,
+} from "../middlewares/auth.middleware.ts";
 import registrationRouter from "./registration.routes.js";
 import { getEventSurveyAnalytics } from "../controllers/analytics.controller.ts";
 import { generateEventAIInsight } from "../controllers/ai.controller.ts";
@@ -64,6 +67,14 @@ router.post(
   requirePermission("events:create"),
   validate(createEventBodySchema, "body"),
   handleCreateEvent,
+);
+
+// GET /- get event by id
+router.get(
+  "/:id",
+  requireAuth,
+  validate(eventParamsSchema, "params"),
+  handleGetEventById,
 );
 
 // PATCH /:id — update event.

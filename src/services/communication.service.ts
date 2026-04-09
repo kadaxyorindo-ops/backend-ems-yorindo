@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import { CommunicationCampaign, Event, Registration } from "../models/index.ts";
 import { env } from "../config/env.ts";
-import { sendEmailMessage } from "./email.service.ts";
+import { getYorindoLogoAttachment, sendEmailMessage } from "./email.service.ts";
 import { enqueueCommunicationCampaignJob } from "./email-queue.service.ts";
 import {
   COMMUNICATION_EMAIL_TEMPLATE_IDS,
@@ -1195,6 +1195,7 @@ export async function processQueuedCommunicationCampaign(campaignId: string) {
         subject: rendered.subject,
         html: rendered.html,
         text: rendered.text,
+        attachments: [getYorindoLogoAttachment()],
       });
 
       delivery.successCount += 1;

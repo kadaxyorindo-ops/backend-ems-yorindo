@@ -9,8 +9,9 @@ import { Types } from "mongoose";
 import { Event, Participant, Registration } from "../models/index.ts";
 import {
   escapeEmailHtml,
+  getYorindoLogoAttachment,
   sendEmailMessage,
-  YORINDO_LOGO_B64,
+  YORINDO_LOGO_CID,
 } from "./email.service.ts";
 import { signRegistrationTicket } from "../utils/jwt.ts";
 import { enqueueRegistrationTicketJob } from "./email-queue.service.ts";
@@ -124,97 +125,59 @@ function renderTicketEmail(params: {
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>${safeEventTitle} Ticket</title>
 </head>
-<body style="margin:0;padding:0;background-color:#eef3ff;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#eef3ff;">
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f1f5f9;">
     <tr>
-      <td align="center" style="padding:40px 16px;">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background-color:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #dbe5ff;box-shadow:0 16px 48px rgba(15,47,120,0.08);">
+      <td align="center" style="padding:48px 16px 40px;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;">
           <tr>
-            <td style="padding:0;font-size:0;line-height:0;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-                <tr>
-                  <td style="height:6px;background-color:#6B3FA0;font-size:1px;line-height:1px;">&nbsp;</td>
-                  <td style="height:6px;background-color:#2B5EAB;font-size:1px;line-height:1px;">&nbsp;</td>
-                  <td style="height:6px;background-color:#43B049;font-size:1px;line-height:1px;">&nbsp;</td>
-                  <td style="height:6px;background-color:#EA4C1B;font-size:1px;line-height:1px;">&nbsp;</td>
-                  <td style="height:6px;background-color:#F5A623;font-size:1px;line-height:1px;">&nbsp;</td>
-                </tr>
-              </table>
+            <td align="center" style="padding:28px 40px;background-color:#0c1b45;">
+              <div style="display:inline-block;background-color:#ffffff;border-radius:14px;padding:14px 28px;">
+                <img src="cid:${YORINDO_LOGO_CID}" alt="Yorindo Communication" width="140" style="display:block;width:140px;max-width:140px;height:auto;border:0;" />
+              </div>
             </td>
           </tr>
           <tr>
-            <td align="center" style="padding:28px 32px 20px;border-bottom:1px solid #edf2ff;">
-              <img src="data:image/png;base64,${YORINDO_LOGO_B64}" alt="Yorindo EMS" width="184" height="61" style="display:block;width:184px;max-width:184px;height:auto;border:0;" />
+            <td style="padding:32px 40px 8px;">
+              <p style="margin:0 0 12px;font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#64748b;line-height:1;">Ticket Confirmation</p>
+              <h1 style="margin:0 0 14px;font-size:24px;line-height:1.25;color:#0f172a;font-weight:700;">Your QR Ticket Is Ready</h1>
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.8;color:#475569;">Hi <strong style="color:#0f172a;">${safeRecipientName}</strong>, your registration for <strong style="color:#0f172a;">${safeEventTitle}</strong> has been approved. Keep this QR ticket and show it at the check-in desk.</p>
+              <div style="border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;padding:16px 18px;margin-bottom:20px;">
+                <p style="margin:0;font-size:14px;font-weight:700;color:#0f172a;">${safeEventTitle}</p>
+                <p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#475569;">${formattedEventDate}</p>
+                <p style="margin:4px 0 0;font-size:13px;line-height:1.6;color:#475569;">${safeEventLocation}</p>
+              </div>
+              <div style="border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;padding:16px 18px;margin:20px 0;text-align:center;">
+                <img src="cid:${QR_ATTACHMENT_CID}" alt="QR ticket for event check-in" width="380" height="380" style="display:inline-block;width:380px;height:380px;border:0;" />
+              </div>
+              <p style="margin:0 0 8px;font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#64748b;text-align:center;">Ticket Code</p>
+              <p style="margin:0 0 24px;text-align:center;font-family:'Courier New',Courier,monospace;font-size:18px;font-weight:700;line-height:1.7;color:#0f172a;word-break:break-word;">${safeTicketCode}</p>
+              <p style="margin:0;font-size:13px;line-height:1.7;color:#94a3b8;">Save this email or download the QR image before arriving at the venue. Each ticket is unique and can only be used once for check-in.</p>
             </td>
           </tr>
           <tr>
-            <td style="padding:32px 32px 12px;">
-              <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#64748b;line-height:1;">Approved Registration</p>
-              <h1 style="margin:0 0 14px;font-size:28px;line-height:1.2;color:#0f2f78;font-weight:700;">Your QR Ticket Is Ready</h1>
-              <p style="margin:0 0 24px;font-size:15px;line-height:1.8;color:#475569;">Hi <strong style="color:#0f172a;">${safeRecipientName}</strong>, your registration for <strong style="color:#0f172a;">${safeEventTitle}</strong> has been approved. Please keep this QR ticket and show it at the check-in desk.</p>
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px;border-collapse:separate;border-spacing:0;">
-                <tr>
-                  <td style="background-color:#f8fbff;border:1px solid #dbe5ff;border-radius:20px;padding:20px 22px;">
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <tr>
-                        <td style="padding-bottom:12px;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#64748b;">Event</td>
-                      </tr>
-                      <tr>
-                        <td style="padding-bottom:8px;font-size:22px;line-height:1.3;font-weight:700;color:#102a63;">${safeEventTitle}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding-bottom:6px;font-size:14px;line-height:1.7;color:#475569;">${formattedEventDate}</td>
-                      </tr>
-                      <tr>
-                        <td style="font-size:14px;line-height:1.7;color:#475569;">${safeEventLocation}</td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px;">
-                <tr>
-                  <td align="center" style="padding:0 0 18px;">
-                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border:1px solid #dbe5ff;border-radius:24px;padding:12px;">
-                      <tr>
-                        <td align="center">
-                          <img src="cid:${QR_ATTACHMENT_CID}" alt="QR ticket for event check-in" width="400" height="400" style="display:block;width:400px;height:400px;border:0;" />
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center">
-                    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#64748b;">Ticket Code</p>
-                    <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:18px;font-weight:700;line-height:1.7;color:#0f172a;word-break:break-word;">${safeTicketCode}</p>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:12px;">
-                <tr>
-                  <td style="background-color:#fef8e7;border-left:4px solid #f5a623;border-radius:6px;padding:14px 16px;">
-                    <p style="margin:0;font-size:13px;line-height:1.7;color:#6b5a13;">Save this email or download the QR image attachment before arriving at the venue. Each ticket is unique and can only be used once for check-in.</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 32px 28px;">
-              <p style="margin:0;font-size:13px;line-height:1.7;color:#94a3b8;">If you believe this approval email reached you by mistake, please reply to this message so the event team can investigate.</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="border-top:1px solid #edf2ff;padding:18px 32px;background-color:#f8fbff;">
+            <td style="border-top:1px solid #f1f5f9;padding:18px 40px;background-color:#f8fafc;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td>
-                    <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.6;">This ticket was sent to the email registered in Yorindo EMS.</p>
+                    <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.6;">Sent to the email address registered with Yorindo EMS.</p>
                   </td>
                   <td align="right" style="white-space:nowrap;">
                     <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#cbd5e1;">Yorindo EMS</p>
                   </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0;font-size:0;line-height:0;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="height:5px;background-color:#6B3FA0;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#2B5EAB;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#43B049;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#EA4C1B;font-size:1px;line-height:1px;">&nbsp;</td>
+                  <td style="height:5px;background-color:#F5A623;font-size:1px;line-height:1px;">&nbsp;</td>
                 </tr>
               </table>
             </td>
@@ -461,6 +424,7 @@ export async function processQueuedRegistrationTicketEmail(
       html: email.html,
       text: email.text,
       attachments: [
+        getYorindoLogoAttachment(),
         {
           filename: email.attachmentFileName,
           content: qrBuffer,

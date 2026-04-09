@@ -110,9 +110,9 @@ export async function getAllEvents(
 
   // Build the pre-aggregation filter.
   const filter: Record<string, unknown> = {};
-  if (status)   filter.status   = status;
+  if (status) filter.status = status;
   if (category) filter.category = { $regex: category, $options: "i" };
-  if (search)   filter.title    = { $regex: search,   $options: "i" };
+  if (search) filter.title = { $regex: search, $options: "i" };
 
   const sortDirection = sortOrder === "asc" ? 1 : -1;
   const skip = (page - 1) * limit;
@@ -144,7 +144,7 @@ export async function getAllEvents(
                     $expr: { $eq: ["$eventId", "$$eventId"] },
                     // Only pull approved and pending — rejected and
                     // checked_in are excluded from the progress bar.
-                    status: { $in: ["approved", "pending"] },
+                    status: { $in: ["approved", "pending", "checked_in"] },
                   },
                 },
                 // We only need the status field for counting — projecting
@@ -162,8 +162,8 @@ export async function getAllEvents(
                 $size: {
                   $filter: {
                     input: "$registrationDocs",
-                    as:    "reg",
-                    cond:  { $eq: ["$$reg.status", "approved"] },
+                    as: "reg",
+                    cond: { $eq: ["$$reg.status", "approved"] },
                   },
                 },
               },
@@ -171,8 +171,17 @@ export async function getAllEvents(
                 $size: {
                   $filter: {
                     input: "$registrationDocs",
-                    as:    "reg",
-                    cond:  { $eq: ["$$reg.status", "pending"] },
+                    as: "reg",
+                    cond: { $eq: ["$$reg.status", "pending"] },
+                  },
+                },
+              },
+              checkedInCount: {
+                $size: {
+                  $filter: {
+                    input: "$registrationDocs",
+                    as: "reg",
+                    cond: { $eq: ["$$reg.status", "checked_in"] },
                   },
                 },
               },
@@ -186,17 +195,15 @@ export async function getAllEvents(
         ],
 
         // ── Sub-pipeline B: total count for pagination metadata ──────────
-        total: [
-          { $count: "count" },
-        ],
+        total: [{ $count: "count" }],
       },
     },
   ];
 
   const [result] = await Event.aggregate(PipelineStage);
 
-  const items: EventWithCounts[] = result?.items  ?? [];
-  const total: number            = result?.total[0]?.count ?? 0;
+  const items: EventWithCounts[] = result?.items ?? [];
+  const total: number = result?.total[0]?.count ?? 0;
 
   return {
     items,
@@ -233,23 +240,27 @@ export async function getEventStats(): Promise<EventStats> {
 
     // Query 2 — find the nearest upcoming event.
     Event.findOne({
-      status:    { $in: ["upcoming", "registration"] },
+      status: { $in: ["upcoming", "registration"] },
       eventDate: { $gt: now },
     })
       .sort({ eventDate: 1 }) // ascending = nearest first
       .select("title eventDate status industry")
-      .lean<Pick<IEvent, "title" | "eventDate" | "status" | "industry"> & { _id: Types.ObjectId }>(),
+      .lean<
+        Pick<IEvent, "title" | "eventDate" | "status" | "industry"> & {
+          _id: Types.ObjectId;
+        }
+      >(),
   ]);
 
   return {
     totalApprovedAcrossAllEvents: countResult,
     nearestUpcomingEvent: nearestEvent
       ? {
-          _id:       nearestEvent._id,
-          title:     nearestEvent.title,
+          _id: nearestEvent._id,
+          title: nearestEvent.title,
           eventDate: nearestEvent.eventDate,
-          status:    nearestEvent.status,
-          industry:  nearestEvent.industry,
+          status: nearestEvent.status,
+          industry: nearestEvent.industry,
         }
       : null,
   };
@@ -269,21 +280,21 @@ export async function createEvent(
   // Using new Event().save() instead of Event.create() — see existing
   // codebase comment in the original file for the TypeScript reason.
   const doc = await new Event({
-    title:       body.title,
-    slug:        slugifyUnique(body.title),
+    title: body.title,
+    slug: slugifyUnique(body.title),
     description: body.description,
-    category:    body.category,
-    industry:    body.industry,
-    eventDate:   body.eventDate,
-    location:    body.location,
+    category: body.category,
+    industry: body.industry,
+    eventDate: body.eventDate,
+    location: body.location,
     // maxCapacity removed — client does not use hard capacity limits.
     status: "draft",
     registrationForm: {
-      version:     1,
-      fields:      body.registrationForm.fields,
+      version: 1,
+      fields: body.registrationForm.fields,
       publishedAt: null,
     },
-    surveyId:  null,
+    surveyId: null,
     createdBy: new Types.ObjectId(userId),
     updatedBy: null,
   }).save();
@@ -326,7 +337,7 @@ export async function updateEvent(
     id,
     { $set: update },
     {
-      new:          true, // return the updated document
+      new: true, // return the updated document
       runValidators: true,
     },
   ).lean<IEvent & { _id: unknown }>();
@@ -351,7 +362,7 @@ export async function deleteEvent(
     id,
     {
       $set: {
-        status:    "cancelled",
+        status: "cancelled",
         updatedBy: new Types.ObjectId(userId),
       },
     },

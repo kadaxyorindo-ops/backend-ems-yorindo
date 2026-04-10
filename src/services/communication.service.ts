@@ -1,5 +1,10 @@
 import { Types } from "mongoose";
-import { CommunicationCampaign, Event, Registration, Participant } from "../models/index.ts";
+import {
+  CommunicationCampaign,
+  Event,
+  Registration,
+  Participant,
+} from "../models/index.ts";
 import { env } from "../config/env.ts";
 import { getYorindoLogoAttachment, sendEmailMessage } from "./email.service.ts";
 import { enqueueCommunicationCampaignJob } from "./email-queue.service.ts";
@@ -816,9 +821,7 @@ export async function getCommunicationAudience(
   }
 
   const filteredRecipients = allRecipients
-    .filter((recipient) =>
-      matchesAudienceFilters(recipient, filters, lookups),
-    )
+    .filter((recipient) => matchesAudienceFilters(recipient, filters, lookups))
     .toSorted((left, right) => left.fullName.localeCompare(right.fullName));
 
   // Base recipients for building filter options

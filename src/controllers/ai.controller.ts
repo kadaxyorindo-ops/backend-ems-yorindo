@@ -1,7 +1,12 @@
-import type { Request, Response } from 'express';
-import mongoose from 'mongoose';
-import axios from 'axios';
+import type { Request, Response } from "express";
+import mongoose from "mongoose";
+import axios from "axios";
 import { Event, EventAiInsightCache, SurveyResponse } from "../models/index.ts";
+import { sendError, sendSuccess } from "../utils/apiResponse.ts";
+import type {
+  AnalyticsEventParams,
+  AnalyticsInsightsQuery,
+} from "../validators/analytic.validators.ts";
 
 function coerceRefresh(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return false;
@@ -16,13 +21,17 @@ function coerceRefresh(value: unknown): boolean {
 
 export const generateEventAIInsight = async (req: Request, res: Response): Promise<any> => {
   try {
-    const eventId = (req.params.eventId || req.params.id) as string;
-    const refresh = coerceRefresh(req.query.refresh);
+    const eventId =
+      (res.locals.parsed?.params as AnalyticsEventParams | undefined)?.eventId ??
+      ((req.params.eventId || req.params.id) as string);
+    const refresh =
+      (res.locals.parsed?.query as AnalyticsInsightsQuery | undefined)?.refresh ??
+      coerceRefresh(req.query.refresh);
 
     // 1. Validasi Event
     const event = await Event.findById(eventId).lean();
     if (!event) {
-      return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
+      return sendError(res, 404, "Event tidak ditemukan");
     }
 
     if (!refresh) {
@@ -31,13 +40,9 @@ export const generateEventAIInsight = async (req: Request, res: Response): Promi
       }).lean();
 
       if (cached?.insight) {
-        return res.status(200).json({
-          success: true,
-          message: "AI Insight fetched (cached)",
-          eventId: eventId,
-          data: {
-            insight: cached.insight,
-          },
+        return sendSuccess(res, 200, "AI Insight fetched (cached)", {
+          eventId,
+          insight: cached.insight,
           meta: {
             cached: true,
             generatedAt: cached.generatedAt,
@@ -50,7 +55,11 @@ export const generateEventAIInsight = async (req: Request, res: Response): Promi
     const rawResponses = await SurveyResponse.find({ eventId: new mongoose.Types.ObjectId(eventId) }).lean();
     
     if (!rawResponses || rawResponses.length === 0) {
-        return res.status(400).json({ success: false, message: "Belum ada data survey untuk dianalisis oleh AI." });
+      return sendError(
+        res,
+        400,
+        "Belum ada data survey untuk dianalisis oleh AI.",
+      );
     }
 
     // Kita bersihkan datanya sedikit biar token AI tidak terlalu boros
@@ -124,13 +133,9 @@ export const generateEventAIInsight = async (req: Request, res: Response): Promi
     );
 
     // 5. Kembalikan Hasilnya ke Frontend
-    return res.status(200).json({
-      success: true,
-      message: "AI Insight berhasil di-generate",
-      eventId: eventId,
-      data: {
-          insight: aiInsightText
-      },
+    return sendSuccess(res, 200, "AI Insight berhasil di-generate", {
+      eventId,
+      insight: aiInsightText,
       meta: {
         cached: false,
         generatedAt,
@@ -139,10 +144,11 @@ export const generateEventAIInsight = async (req: Request, res: Response): Promi
 
   } catch (error: any) {
     console.error("Error Generating AI Insight:", error?.response?.data || error.message);
-    return res.status(500).json({ 
-        success: false, 
-        message: "Gagal menghasilkan AI Insight", 
-        error: error?.response?.data || error.message 
-    });
+    return sendError(
+      res,
+      500,
+      "Gagal menghasilkan AI Insight",
+      error?.response?.data || error?.message,
+    );
   }
 };

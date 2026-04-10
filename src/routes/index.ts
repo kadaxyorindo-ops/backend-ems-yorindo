@@ -35,6 +35,5 @@ apiV1Router.use("/events", eventRouter);
 apiV1Router.use("/analytics", analyticsRouter);
 apiV1Router.use("/users", userRouter);
 apiV1Router.use("/surveys", surveyRouter);
-apiV1Router.use("/analytics", analyticsRouter);
 
 export default apiV1Router;

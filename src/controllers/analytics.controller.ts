@@ -1,16 +1,20 @@
-import type { Request, Response } from 'express';
-import mongoose from 'mongoose';
-import SurveyResponse from '../models/SurveyResponse.ts';
-import { Event } from '../models/index.ts';
+import type { Request, Response } from "express";
+import mongoose from "mongoose";
+import SurveyResponse from "../models/SurveyResponse.ts";
+import { Event } from "../models/index.ts";
+import { sendError, sendSuccess } from "../utils/apiResponse.ts";
+import type { AnalyticsEventParams } from "../validators/analytic.validators.ts";
 
 export const getEventSurveyAnalytics = async (req: Request, res: Response): Promise<any> => {
   try {
-    const eventId = (req.params.eventId || req.params.id) as string;
+    const eventId =
+      (res.locals.parsed?.params as AnalyticsEventParams | undefined)?.eventId ??
+      ((req.params.eventId || req.params.id) as string);
 
     // Validasi Event
     const event = await Event.findById(eventId).lean();
     if (!event) {
-      return res.status(404).json({ success: false, message: "Event tidak ditemukan" });
+      return sendError(res, 404, "Event tidak ditemukan");
     }
 
     // MONGODB AGGREGATION PIPELINE
@@ -126,16 +130,14 @@ export const getEventSurveyAnalytics = async (req: Request, res: Response): Prom
       }
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "Data analitik berhasil di-generate",
-      eventId: eventId,
-      total_data_analyzed: rawAnalytics.length,
-      analytics: result
+    return sendSuccess(res, 200, "Data analitik berhasil di-generate", {
+      eventId,
+      totalDataAnalyzed: rawAnalytics.length,
+      analytics: result,
     });
 
   } catch (error: any) {
     console.error("Error Analytics:", error);
-    return res.status(500).json({ success: false, message: "Terjadi kesalahan server", error: error.message });
+    return sendError(res, 500, "Terjadi kesalahan server", error?.message);
   }
 };

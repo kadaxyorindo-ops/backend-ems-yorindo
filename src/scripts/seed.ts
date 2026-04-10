@@ -24,7 +24,7 @@ import { JobTitle } from "../models/schemas/job-title.schema.js";
 import { Company } from "../models/schemas/company.schema.js";
 import { User } from "../models/schemas/user.schema.js";
 import { Otp } from "../models/schemas/otp.schema.js";
-import { Event } from "../models/schemas/event.schema.js";
+import { Event, type IEvent } from "../models/schemas/event.schema.js";
 import { Participant } from "../models/schemas/participant.schema.js";
 import { Registration } from "../models/schemas/registration.schema.js";
 import { Survey } from "../models/schemas/survey.schema.js";
@@ -40,6 +40,22 @@ function uid(): string {
   return crypto.randomUUID();
 }
 
+const TARGET_EVENT_ID = new Types.ObjectId(
+  process.env.SEED_TARGET_EVENT_ID?.trim() || "69d4a70045700ab5c84948b1",
+);
+
+const CUSTOM_FIELD_IDS = {
+  shortText: "05f280af-ba53-4669-988b-49a352594876",
+  emailAlt: "d4959350-6f5f-45ec-8a52-f024e7934977",
+  phoneAlt: "32894c36-6d4a-4f01-bed7-f69f577be233",
+  number: "57e98d0b-08de-4442-bb9f-df0c4c13ee47",
+  textarea: "bc4fd9ea-4728-49aa-b48c-188233d566a4",
+  radio: "3486b23b-9331-4867-8284-453178e05f05",
+  checkbox: "323260e6-3e80-42d3-9659-bf5873487693",
+  select: "b66110e2-a6d3-4245-b3e6-d534ca1b0b51",
+  date: "1984b484-4fa3-4cd0-af19-eb73ebe4fcd1",
+} as const;
+
 function slugify(title: string): string {
   const base = title
     .toLowerCase()
@@ -49,8 +65,26 @@ function slugify(title: string): string {
   return `${base}-${suffix}`;
 }
 
-function pick<T>(arr: readonly T[] | T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)] as T;
+function pick<T>(arr: readonly T[] | T[], index?: number): T {
+  if (arr.length === 0) {
+    throw new Error("pick() called with an empty array");
+  }
+
+  if (index === undefined) {
+    return arr[Math.floor(Math.random() * arr.length)] as T;
+  }
+
+  return arr[index % arr.length] as T;
+}
+
+function pickMany(items: readonly string[] | string[], index: number): string[] {
+  if (items.length === 0) {
+    throw new Error("pickMany() called with an empty array");
+  }
+
+  const first = items[index % items.length] as string;
+  const second = items[(index + 1) % items.length] as string;
+  return index % 2 === 0 ? [first, second] : [first];
 }
 
 function randInt(min: number, max: number): number {
@@ -365,7 +399,7 @@ async function seedAdditionalParticipants(): Promise<void> {
     };
   });
 
-  const customFieldIds = new Set(Object.values(CUSTOM_FIELD_IDS));
+  const customFieldIds = new Set<string>(Object.values(CUSTOM_FIELD_IDS));
   const surveyTypeMap: Record<string, string> = {
     text: "text",
     email: "text",
@@ -644,7 +678,17 @@ async function seed(): Promise<void> {
   // -------------------------------------------------------------------------
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
-  const eventData = [
+  type EventSeedData = {
+    title: string;
+    description: string;
+    category: string;
+    industry: { _id: Types.ObjectId; name: string };
+    eventDate: Date;
+    location: string;
+    status: IEvent["status"];
+  };
+
+  const eventData: EventSeedData[] = [
     // Index 0 — special: super_admin participants will be registered here
     {
       title:       "Annual HR Summit 2025",
@@ -780,113 +824,6 @@ async function seed(): Promise<void> {
       eventDate:   new Date("2025-08-14T08:00:00+07:00"),
       location:    "Aryaduta Medan, Medan",
       status:      "done" as const,
-    },
-    {
-      fieldId: CUSTOM_FIELD_IDS.shortText,
-      key: "short_text_q",
-      label: "Pertanyaan Text Singkat",
-      type: "text" as const,
-      order: 9,
-      isFixed: false,
-      placeholder: "Jawaban singkat",
-      validation: { required: true },
-      isActive: true,
-    },
-    {
-      fieldId: CUSTOM_FIELD_IDS.emailAlt,
-      key: "email_q",
-      label: "Email Alternatif",
-      type: "email" as const,
-      order: 10,
-      isFixed: false,
-      validation: { required: true },
-      isActive: true,
-    },
-    {
-      fieldId: CUSTOM_FIELD_IDS.phoneAlt,
-      key: "phone_q",
-      label: "Nomor WhatsApp",
-      type: "phone" as const,
-      order: 11,
-      isFixed: false,
-      validation: { required: true },
-      isActive: true,
-    },
-    {
-      fieldId: CUSTOM_FIELD_IDS.number,
-      key: "number_q",
-      label: "Jumlah Karyawan",
-      type: "number" as const,
-      order: 12,
-      isFixed: false,
-      validation: { required: true },
-      isActive: true,
-    },
-    {
-      fieldId: CUSTOM_FIELD_IDS.textarea,
-      key: "textarea_q",
-      label: "Ceritakan tentang perusahaanmu",
-      type: "textarea" as const,
-      order: 13,
-      isFixed: false,
-      validation: { required: true },
-      isActive: true,
-    },
-    {
-      fieldId: CUSTOM_FIELD_IDS.radio,
-      key: "radio_q",
-      label: "Pilih Paket",
-      type: "radio" as const,
-      order: 14,
-      isFixed: false,
-      options: [
-        { value: "Basic", label: "Basic", isDefault: false },
-        { value: "Pro", label: "Pro", isDefault: false },
-        { value: "Enterprise", label: "Enterprise", isDefault: false },
-      ],
-      validation: { required: true },
-      isActive: true,
-    },
-    {
-      fieldId: CUSTOM_FIELD_IDS.checkbox,
-      key: "checkbox_q",
-      label: "Produk yang digunakan",
-      type: "checkbox" as const,
-      order: 15,
-      isFixed: false,
-      options: [
-        { value: "CRM", label: "CRM", isDefault: false },
-        { value: "ERP", label: "ERP", isDefault: false },
-        { value: "HRIS", label: "HRIS", isDefault: false },
-        { value: "Analytics", label: "Analytics", isDefault: false },
-      ],
-      validation: { required: true },
-      isActive: true,
-    },
-    {
-      fieldId: CUSTOM_FIELD_IDS.select,
-      key: "select_q",
-      label: "Sumber Informasi",
-      type: "select" as const,
-      order: 16,
-      isFixed: false,
-      options: [
-        { value: "instagram", label: "Instagram", isDefault: false },
-        { value: "linkedin", label: "LinkedIn", isDefault: false },
-        { value: "website", label: "Website", isDefault: false },
-      ],
-      validation: { required: true },
-      isActive: true,
-    },
-    {
-      fieldId: CUSTOM_FIELD_IDS.date,
-      key: "date_q",
-      label: "Tanggal Kunjungan",
-      type: "date" as const,
-      order: 17,
-      isFixed: false,
-      validation: { required: false },
-      isActive: true,
     },
   ];
 
@@ -1076,7 +1013,7 @@ async function seed(): Promise<void> {
   }
 
   function buildRegistration(
-    evDoc: (typeof eventDocs)[0],
+    evDoc: Pick<IEvent, "_id" | "status" | "eventDate">,
     participantId: Types.ObjectId,
     meta: RegMeta,
     adminUserId: Types.ObjectId,

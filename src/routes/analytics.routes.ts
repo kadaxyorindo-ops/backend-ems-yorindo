@@ -1,10 +1,6 @@
 /**
  * @file routes/analytics.routes.ts
- * @description Stub router for /analytics endpoints.
- *
- * This module is not yet implemented. All routes return 501 Not Implemented.
- * Replace the notImplemented handler with real controllers when the analytics
- * module is built by the assigned team.
+ * @description Router for /analytics endpoints.
  */
 
 import { Router } from "express";
@@ -24,6 +20,8 @@ import {
   handleGetEventParticipantAnalytics,
   handleGetEventAnalyticsInsights,
 } from "../controllers/event-analytic.controller.ts";
+import { getEventSurveyAnalytics } from "../controllers/analytics.controller.ts";
+import { generateEventAIInsight } from "../controllers/ai.controller.ts";
 
 const router = Router();
 
@@ -70,6 +68,21 @@ router.get(
   validate(analyticsEventParamsSchema, "params"),
   validate(analyticsInsightsQuerySchema, "query"),
   handleGetEventAnalyticsInsights,
+);
+
+// ============= ROUTE SURVEY ANALYTICS (SurveyResponse) ====================
+
+router.get(
+  "/events/:eventId/survey",
+  validate(analyticsEventParamsSchema, "params"),
+  getEventSurveyAnalytics,
+);
+
+router.get(
+  "/events/:eventId/survey/ai-insight",
+  validate(analyticsEventParamsSchema, "params"),
+  validate(analyticsInsightsQuerySchema, "query"),
+  generateEventAIInsight,
 );
 
 export default router;

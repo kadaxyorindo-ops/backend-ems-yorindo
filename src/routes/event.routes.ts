@@ -105,9 +105,7 @@ router.delete(
 
 // GET — View Event Survey Analytics (hanya untuk admin/super_admin)
 
-
 // GET — Generate AI Insight dari data Survey
-
 
 // Nested router — handles all /events/:eventId/registrations/* endpoints.
 router.use("/:eventId/registrations", registrationRouter);

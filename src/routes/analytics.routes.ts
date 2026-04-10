@@ -21,7 +21,6 @@ import {
   handleGetEventAnalyticsInsights,
 } from "../controllers/event-analytic.controller.ts";
 import { getEventSurveyAnalytics } from "../controllers/analytics.controller.ts";
-import { generateEventAIInsight } from "../controllers/ai.controller.ts";
 
 const router = Router();
 

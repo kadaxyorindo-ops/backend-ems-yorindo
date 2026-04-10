@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { CommunicationCampaign, Event, Registration } from "../models/index.ts";
+import { CommunicationCampaign, Event, Registration, Participant } from "../models/index.ts";
 import { env } from "../config/env.ts";
 import { getYorindoLogoAttachment, sendEmailMessage } from "./email.service.ts";
 import { enqueueCommunicationCampaignJob } from "./email-queue.service.ts";
@@ -676,6 +676,62 @@ async function loadRegistrationAudience(eventId?: string) {
   return { recipients, registrationLookups };
 }
 
+async function loadUnregisteredParticipants() {
+  const participants = (await Participant.find()
+    .populate("company", "companyId name")
+    .populate("industry", "refId name")
+    .populate("jobTitle", "refId name")
+    .populate("city", "refId name")
+    .sort({ fullName: 1 })
+    .lean()) as any[];
+
+  const recipients = participants
+    .map((participant) => {
+      const email = pickRecipientEmail(participant);
+      if (!email) return null;
+
+      return {
+        registrationId: participant._id.toString(),
+        participantId: participant._id.toString(),
+        eventId: "",
+        eventTitle: "",
+        eventDate: "",
+        fullName: participant.fullName,
+        email,
+        participantType: "participant",
+        status: "unregistered",
+        companyName: participant.company?.name ?? null,
+        industryName: participant.industry?.name ?? null,
+        jobTitleName: participant.jobTitle?.name ?? null,
+        cityName: participant.city?.name ?? null,
+        sourceChannelCode: participant.sourceChannel?.code ?? null,
+      };
+    })
+    .filter((item): item is CommunicationAudienceRecipient => Boolean(item));
+
+  const participantLookups: Record<
+    string,
+    {
+      companyId: string | null;
+      industryId: string | null;
+      jobTitleId: string | null;
+      cityId: string | null;
+    }
+  > = Object.fromEntries(
+    participants.map((participant) => [
+      participant._id.toString(),
+      {
+        companyId: participant.company?.companyId?.toString() ?? null,
+        industryId: participant.industry?.refId?.toString() ?? null,
+        jobTitleId: participant.jobTitle?.refId?.toString() ?? null,
+        cityId: participant.city?.refId?.toString() ?? null,
+      },
+    ]),
+  );
+
+  return { recipients, participantLookups };
+}
+
 async function getCampaignRecipients(registrationIds: string[]) {
   const validRegistrationIds = registrationIds
     .filter((value) => Types.ObjectId.isValid(value))
@@ -732,20 +788,43 @@ export async function getCommunicationAudience(
     status: event.status,
   }));
 
-  const { recipients: eventRecipients, registrationLookups } =
-    await loadRegistrationAudience(filters.eventId);
+  // If eventId is provided, use registered participants for that event
+  // If eventId is NOT provided, use all participants from the database
+  let allRecipients: CommunicationAudienceRecipient[] = [];
+  let lookups: Record<
+    string,
+    {
+      companyId: string | null;
+      industryId: string | null;
+      jobTitleId: string | null;
+      cityId: string | null;
+    }
+  > = {};
 
-  const filteredRecipients = eventRecipients
+  if (filters.eventId) {
+    // Show registered participants for specific event
+    const { recipients: eventRecipients, registrationLookups } =
+      await loadRegistrationAudience(filters.eventId);
+    allRecipients = eventRecipients;
+    lookups = registrationLookups;
+  } else {
+    // Show all participants (unregistered)
+    const { recipients: participantRecipients, participantLookups } =
+      await loadUnregisteredParticipants();
+    allRecipients = participantRecipients;
+    lookups = participantLookups;
+  }
+
+  const filteredRecipients = allRecipients
     .filter((recipient) =>
-      matchesAudienceFilters(recipient, filters, registrationLookups),
+      matchesAudienceFilters(recipient, filters, lookups),
     )
     .toSorted((left, right) => left.fullName.localeCompare(right.fullName));
 
+  // Base recipients for building filter options
   const baseRecipients = filters.eventId
-    ? eventRecipients.filter(
-        (recipient) => recipient.eventId === filters.eventId,
-      )
-    : eventRecipients;
+    ? allRecipients.filter((recipient) => recipient.eventId === filters.eventId)
+    : allRecipients;
 
   const summaryRecipients = baseRecipients.filter((recipient) =>
     matchesAudienceFilters(
@@ -754,7 +833,7 @@ export async function getCommunicationAudience(
         ...filters,
         status: "all",
       },
-      registrationLookups,
+      lookups,
     ),
   );
 
@@ -762,7 +841,7 @@ export async function getCommunicationAudience(
     dedupeByKey(
       baseRecipients
         .map((recipient) => ({
-          id: registrationLookups[recipient.registrationId]?.companyId ?? "",
+          id: lookups[recipient.registrationId]?.companyId ?? "",
           label: recipient.companyName ?? "",
         }))
         .filter((item) => item.id && item.label),
@@ -774,7 +853,7 @@ export async function getCommunicationAudience(
     dedupeByKey(
       baseRecipients
         .map((recipient) => ({
-          id: registrationLookups[recipient.registrationId]?.industryId ?? "",
+          id: lookups[recipient.registrationId]?.industryId ?? "",
           label: recipient.industryName ?? "",
         }))
         .filter((item) => item.id && item.label),
@@ -786,7 +865,7 @@ export async function getCommunicationAudience(
     dedupeByKey(
       baseRecipients
         .map((recipient) => ({
-          id: registrationLookups[recipient.registrationId]?.jobTitleId ?? "",
+          id: lookups[recipient.registrationId]?.jobTitleId ?? "",
           label: recipient.jobTitleName ?? "",
         }))
         .filter((item) => item.id && item.label),
@@ -798,7 +877,7 @@ export async function getCommunicationAudience(
     dedupeByKey(
       baseRecipients
         .map((recipient) => ({
-          id: registrationLookups[recipient.registrationId]?.cityId ?? "",
+          id: lookups[recipient.registrationId]?.cityId ?? "",
           label: recipient.cityName ?? "",
         }))
         .filter((item) => item.id && item.label),

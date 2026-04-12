@@ -4,6 +4,7 @@
  */
 
 import { Types } from "mongoose";
+import type { SurveyQuestionType } from "../models/constants/enums.ts";
 import { Event, SurveyResponse } from "../models/index.ts";
 
 export interface SurveyAnalyticsItem {
@@ -17,13 +18,25 @@ export interface EventSurveyAnalyticsResult {
   analytics: Record<string, SurveyAnalyticsItem>;
 }
 
-type RawSurveyAggregation = {
-  _id: string;
-  data: Array<{
-    label: unknown;
-    total: number;
-  }>;
+type RawSurveyAnswerRow = {
+  questionId: string;
+  label: unknown;
+  type: unknown;
+  value: unknown;
 };
+
+type SupportedAnalyticsType = "text_list" | "chart";
+
+type AggregatedQuestion = {
+  questionId: string;
+  label: string;
+  type: SupportedAnalyticsType;
+  responses: string[];
+  counts: Record<string, number>;
+};
+
+const TEXT_TYPES = new Set<SurveyQuestionType>(["text", "textarea"]);
+const CHART_TYPES = new Set<SurveyQuestionType>(["select", "radio", "checkbox"]);
 
 function toAnswerLabel(value: unknown): string {
   if (typeof value === "string") {
@@ -46,6 +59,42 @@ function toAnswerLabel(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function toSupportedAnalyticsType(type: unknown): SupportedAnalyticsType | null {
+  if (typeof type !== "string") {
+    return null;
+  }
+
+  if (TEXT_TYPES.has(type as SurveyQuestionType)) {
+    return "text_list";
+  }
+
+  if (CHART_TYPES.has(type as SurveyQuestionType)) {
+    return "chart";
+  }
+
+  return null;
+}
+
+function normalizeAnswerValues(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => toAnswerLabel(item));
+  }
+
+  return [toAnswerLabel(value)];
+}
+
+function createUniqueQuestionKey(
+  analytics: Record<string, SurveyAnalyticsItem>,
+  label: string,
+  questionId: string,
+): string {
+  if (!(label in analytics)) {
+    return label;
+  }
+
+  return `${label} (${questionId})`;
+}
+
 export async function getEventSurveyAnalytics(
   eventId: string,
 ): Promise<EventSurveyAnalyticsResult | null> {
@@ -54,120 +103,96 @@ export async function getEventSurveyAnalytics(
     return null;
   }
 
-  const rawAnalytics = await SurveyResponse.aggregate<RawSurveyAggregation>([
+  const rawAnswers = await SurveyResponse.aggregate<RawSurveyAnswerRow>([
     { $match: { eventId: new Types.ObjectId(eventId) } },
+    { $unwind: { path: "$answers", preserveNullAndEmptyArrays: false } },
     {
       $project: {
-        answersArray: {
-          $switch: {
-            branches: [
-              {
-                case: { $eq: [{ $type: "$answers" }, "object"] },
-                then: { $objectToArray: "$answers" },
-              },
-              {
-                case: { $eq: [{ $type: "$answers" }, "array"] },
-                then: {
-                  $map: {
-                    input: "$answers",
-                    as: "answer",
-                    in: {
-                      k: {
-                        $ifNull: [
-                          "$$answer.label",
-                          {
-                            $ifNull: [
-                              "$$answer.questionId",
-                              "Pertanyaan Tanpa Judul",
-                            ],
-                          },
-                        ],
-                      },
-                      v: "$$answer.value",
-                    },
-                  },
-                },
-              },
-            ],
-            default: [],
-          },
-        },
-      },
-    },
-    { $unwind: { path: "$answersArray", preserveNullAndEmptyArrays: false } },
-    {
-      $match: {
-        "answersArray.k": { $ne: null },
-        "answersArray.v": { $ne: null },
+        questionId: "$answers.questionId",
+        label: "$answers.label",
+        type: "$answers.type",
+        value: "$answers.value",
       },
     },
     {
-      $project: {
-        question: "$answersArray.k",
-        answerValues: {
-          $cond: {
-            if: { $eq: [{ $type: "$answersArray.v" }, "array"] },
-            then: "$answersArray.v",
-            else: ["$answersArray.v"],
-          },
-        },
-      },
-    },
-    { $unwind: "$answerValues" },
-    {
-      $group: {
-        _id: { question: "$question", answer: "$answerValues" },
-        count: { $sum: 1 },
-      },
-    },
-    {
-      $group: {
-        _id: "$_id.question",
-        data: {
-          $push: {
-            label: "$_id.answer",
-            total: "$count",
-          },
-        },
-      },
+      $match: { questionId: { $ne: null } },
     },
   ]);
 
+  const groupedQuestions = new Map<string, AggregatedQuestion>();
+
+  rawAnswers.forEach((answer) => {
+    const analyticsType = toSupportedAnalyticsType(answer.type);
+    if (!analyticsType) {
+      return;
+    }
+
+    const questionId = String(answer.questionId).trim();
+    if (!questionId) {
+      return;
+    }
+
+    const fallbackLabel = "Pertanyaan Tanpa Judul";
+    const questionLabel =
+      typeof answer.label === "string" && answer.label.trim().length > 0
+        ? answer.label.trim()
+        : fallbackLabel;
+
+    const existing = groupedQuestions.get(questionId);
+    const question =
+      existing ??
+      ({
+        questionId,
+        label: questionLabel,
+        type: analyticsType,
+        responses: [],
+        counts: {},
+      } satisfies AggregatedQuestion);
+
+    if (!existing) {
+      groupedQuestions.set(questionId, question);
+    } else if (question.label === fallbackLabel && questionLabel !== fallbackLabel) {
+      question.label = questionLabel;
+    }
+
+    const normalizedValues = normalizeAnswerValues(answer.value);
+
+    if (analyticsType === "text_list") {
+      question.responses.push(...normalizedValues);
+      return;
+    }
+
+    normalizedValues.forEach((value) => {
+      question.counts[value] = (question.counts[value] ?? 0) + 1;
+    });
+  });
+
   const analytics: Record<string, SurveyAnalyticsItem> = {};
 
-  rawAnalytics.forEach((item) => {
-    const questionKey = item._id;
-    const responses = item.data;
+  groupedQuestions.forEach((question) => {
+    const questionKey = createUniqueQuestionKey(
+      analytics,
+      question.label,
+      question.questionId,
+    );
 
-    const totalUniqueAnswers = responses.length;
-    const totalVotes = responses.reduce((sum, entry) => sum + entry.total, 0);
-    const avgFrequency =
-      totalUniqueAnswers > 0 ? totalVotes / totalUniqueAnswers : 0;
-
-    const isTextBased = totalUniqueAnswers >= 7 && avgFrequency <= 1.5;
-
-    if (isTextBased) {
+    if (question.type === "text_list") {
       analytics[questionKey] = {
         type: "text_list",
-        data: responses.map((entry) => toAnswerLabel(entry.label)),
+        data: question.responses,
       };
       return;
     }
 
-    const chartData: Record<string, number> = {};
-    responses.forEach((entry) => {
-      chartData[toAnswerLabel(entry.label)] = entry.total;
-    });
-
     analytics[questionKey] = {
       type: "chart",
-      data: chartData,
+      data: question.counts,
     };
   });
 
   return {
     eventId,
-    totalDataAnalyzed: rawAnalytics.length,
+    totalDataAnalyzed: groupedQuestions.size,
     analytics,
   };
 }

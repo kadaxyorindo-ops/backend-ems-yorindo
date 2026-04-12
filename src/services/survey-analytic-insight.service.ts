@@ -10,9 +10,16 @@ export class SurveyInsightUnavailableError extends Error {
   statusCode = 400;
 }
 
+export interface SurveyAnalyticsInsight {
+  summary: string;
+  keyFindings: string[];
+  exhibitorActions: string[];
+  opportunityWatchout: string;
+}
+
 export interface EventSurveyInsightResult {
   eventId: string;
-  insight: string;
+  insight: SurveyAnalyticsInsight;
   totalResponses: number;
 }
 
@@ -23,27 +30,48 @@ Analisis data survey pengunjung untuk event "${eventTitle}".
 Fokus pada insight yang paling berguna untuk exhibitor.
 Jangan mengulang data mentah atau menjelaskan struktur JSON.
 
-Balas dalam Markdown singkat dengan format:
-
-### Ringkasan
-(maksimal 2 kalimat tentang pola utama audiens)
-
-### Temuan Utama
-- maksimal 3 poin
-- sorot minat, kebutuhan, atau pain point yang paling menonjol
-
-### Aksi untuk Exhibitor
-- maksimal 3 poin
-- rekomendasi harus spesifik, praktis, dan bisa langsung ditindaklanjuti
-
-### Peluang / Waspada
-(1 poin singkat tentang peluang tersembunyi atau red flag)
-
-Gunakan bahasa Indonesia profesional dan padat. Total jawaban singkat, idealnya di bawah 180 kata.
+BALAS HANYA JSON valid (tanpa Markdown) dengan format:
+{"summary":"...","keyFindings":["..."],"exhibitorActions":["..."],"opportunityWatchout":"..."}
+- summary maksimal 2 kalimat tentang pola utama audiens.
+- keyFindings maksimal 3 poin: minat, kebutuhan, atau pain point paling menonjol.
+- exhibitorActions maksimal 3 poin: rekomendasi spesifik dan praktis.
+- opportunityWatchout 1 kalimat: peluang tersembunyi atau red flag.
+Gunakan bahasa Indonesia profesional dan padat. Total jawaban idealnya di bawah 180 kata.
 
 Data survey:
 ${JSON.stringify(answers)}
 `.trim();
+}
+
+function safeParse(content: string): SurveyAnalyticsInsight {
+  try {
+    const parsed = JSON.parse(content) as Partial<SurveyAnalyticsInsight>;
+
+    const summary = typeof parsed.summary === "string" ? parsed.summary : "";
+    const keyFindings = Array.isArray(parsed.keyFindings)
+      ? parsed.keyFindings.filter((item): item is string => typeof item === "string")
+      : [];
+    const exhibitorActions = Array.isArray(parsed.exhibitorActions)
+      ? parsed.exhibitorActions.filter((item): item is string => typeof item === "string")
+      : [];
+    const opportunityWatchout =
+      typeof parsed.opportunityWatchout === "string" ? parsed.opportunityWatchout : "";
+
+    return {
+      summary,
+      keyFindings: keyFindings.slice(0, 3),
+      exhibitorActions: exhibitorActions.slice(0, 3),
+      opportunityWatchout,
+    };
+  } catch {
+    const fallback = content.trim();
+    return {
+      summary: fallback,
+      keyFindings: [],
+      exhibitorActions: [],
+      opportunityWatchout: "",
+    };
+  }
 }
 
 export async function getEventSurveyInsight(
@@ -70,7 +98,7 @@ export async function getEventSurveyInsight(
     {
       role: "developer",
       content:
-        "Kamu adalah analis bisnis event. Tulis insight yang singkat, tajam, dan mudah dibaca exhibitor.",
+        "Kamu adalah analis bisnis event. Ikuti instruksi format JSON dengan ketat dan jangan gunakan Markdown.",
     },
     {
       role: "user",
@@ -78,9 +106,11 @@ export async function getEventSurveyInsight(
     },
   ]);
 
+  const parsedInsight = safeParse(String(insight));
+
   return {
     eventId,
-    insight: String(insight).trim(),
+    insight: parsedInsight,
     totalResponses: rawResponses.length,
   };
 }

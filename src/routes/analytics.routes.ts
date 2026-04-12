@@ -22,6 +22,7 @@ import {
 } from "../controllers/event-analytic.controller.ts";
 import {
   handleGetEventSurveyAnalytics,
+  handleGetEventSurveyAnalyticsOverview,
   handleGetEventSurveyInsight,
 } from "../controllers/survey-analytic.controller.ts";
 
@@ -88,6 +89,13 @@ router.get(
   "/events/:eventId/survey",
   validate(analyticsEventParamsSchema, "params"),
   handleGetEventSurveyAnalytics,
+);
+
+router.get(
+  // Survey: overview (insight sections + analytics)
+  "/events/:eventId/survey/overview",
+  validate(analyticsEventParamsSchema, "params"),
+  handleGetEventSurveyAnalyticsOverview,
 );
 
 router.get(

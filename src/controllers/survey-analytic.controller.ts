@@ -8,6 +8,7 @@ import { sendError, sendSuccess } from "../utils/apiResponse.ts";
 import type { AnalyticsEventParams } from "../validators/analytic.validators.ts";
 import { getEventSurveyAnalytics } from "../services/survey-analytic.service.ts";
 import { getEventSurveyInsight } from "../services/survey-analytic-insight.service.ts";
+import { getEventSurveyAnalyticsOverview } from "../services/survey-analytic-overview.service.ts";
 
 export async function handleGetEventSurveyAnalytics(
   _req: Request,
@@ -24,6 +25,31 @@ export async function handleGetEventSurveyAnalytics(
     }
 
     sendSuccess(res, 200, "Data analitik survey berhasil di-generate", result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function handleGetEventSurveyAnalyticsOverview(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { eventId } = res.locals.parsed.params as AnalyticsEventParams;
+    const result = await getEventSurveyAnalyticsOverview(eventId);
+
+    if (!result) {
+      sendError(res, 404, "Event tidak ditemukan");
+      return;
+    }
+
+    sendSuccess(
+      res,
+      200,
+      "Overview survey analytics berhasil di-generate",
+      result,
+    );
   } catch (error) {
     next(error);
   }

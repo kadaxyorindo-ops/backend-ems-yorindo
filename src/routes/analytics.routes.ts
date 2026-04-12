@@ -20,7 +20,10 @@ import {
   handleGetEventParticipantAnalytics,
   handleGetEventAnalyticsInsights,
 } from "../controllers/event-analytic.controller.ts";
-import { getEventSurveyAnalytics } from "../controllers/analytics.controller.ts";
+import {
+  handleGetEventSurveyAnalytics,
+  handleGetEventSurveyInsight,
+} from "../controllers/survey-analytic.controller.ts";
 
 const router = Router();
 
@@ -47,15 +50,20 @@ router.get(
   notImplemented,
 );
 
-// ============= ROUTE EVENT ANALYTICS ====================
+// ============================
+// Event Analytics
+// ============================
+// Fokus: data event (participants, overview, insights).
 
 router.get(
+  // Event: ringkasan peserta
   "/events/:eventId/participants/summary",
   validate(analyticsEventParamsSchema, "params"),
   handleGetEventParticipantAnalytics,
 );
 
 router.get(
+  // Event: overview
   "/events/:eventId/overview",
   validate(analyticsEventParamsSchema, "params"),
   validate(analyticsOverviewQuerySchema, "query"),
@@ -63,25 +71,30 @@ router.get(
 );
 
 router.get(
+  // Event: insights
   "/events/:eventId/insights",
   validate(analyticsEventParamsSchema, "params"),
   validate(analyticsInsightsQuerySchema, "query"),
   handleGetEventAnalyticsInsights,
 );
 
-// ============= ROUTE SURVEY ANALYTICS (SurveyResponse) ====================
+// ============================
+// Survey Analytics
+// ============================
+// Fokus: hasil survey untuk event + AI insight.
 
 router.get(
+  // Survey: analytics
   "/events/:eventId/survey",
   validate(analyticsEventParamsSchema, "params"),
-  getEventSurveyAnalytics,
+  handleGetEventSurveyAnalytics,
 );
 
 router.get(
-  "/events/:eventId/survey/ai-insight",
+  // Survey: AI insight
+  "/events/:eventId/survey/insights",
   validate(analyticsEventParamsSchema, "params"),
-  validate(analyticsInsightsQuerySchema, "query"),
-  generateEventAIInsight,
+  handleGetEventSurveyInsight,
 );
 
 export default router;

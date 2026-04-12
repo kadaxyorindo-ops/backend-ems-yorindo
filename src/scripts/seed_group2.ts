@@ -827,7 +827,6 @@ async function seed(): Promise<void> {
     eventDate: new Date("2025-10-23T08:00:00+07:00"),
     location: "Hotel Sutan Raja Purwakarta, Jawa Barat",
     status: "closed",
-    maxCapacity: 200,
     registrationForm: {
       version: 1,
       publishedAt: new Date("2025-09-01T00:00:00Z"),

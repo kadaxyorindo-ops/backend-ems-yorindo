@@ -1,10 +1,6 @@
 /**
  * @file routes/analytics.routes.ts
- * @description Stub router for /analytics endpoints.
- *
- * This module is not yet implemented. All routes return 501 Not Implemented.
- * Replace the notImplemented handler with real controllers when the analytics
- * module is built by the assigned team.
+ * @description Router for /analytics endpoints.
  */
 
 import { Router } from "express";
@@ -24,6 +20,10 @@ import {
   handleGetEventParticipantAnalytics,
   handleGetEventAnalyticsInsights,
 } from "../controllers/event-analytic.controller.ts";
+import {
+  handleGetEventSurveyAnalytics,
+  handleGetEventSurveyInsight,
+} from "../controllers/survey-analytic.controller.ts";
 
 const router = Router();
 
@@ -50,15 +50,20 @@ router.get(
   notImplemented,
 );
 
-// ============= ROUTE EVENT ANALYTICS ====================
+// ============================
+// Event Analytics
+// ============================
+// Fokus: data event (participants, overview, insights).
 
 router.get(
+  // Event: ringkasan peserta
   "/events/:eventId/participants/summary",
   validate(analyticsEventParamsSchema, "params"),
   handleGetEventParticipantAnalytics,
 );
 
 router.get(
+  // Event: overview
   "/events/:eventId/overview",
   validate(analyticsEventParamsSchema, "params"),
   validate(analyticsOverviewQuerySchema, "query"),
@@ -66,10 +71,30 @@ router.get(
 );
 
 router.get(
+  // Event: insights
   "/events/:eventId/insights",
   validate(analyticsEventParamsSchema, "params"),
   validate(analyticsInsightsQuerySchema, "query"),
   handleGetEventAnalyticsInsights,
+);
+
+// ============================
+// Survey Analytics
+// ============================
+// Fokus: hasil survey untuk event + AI insight.
+
+router.get(
+  // Survey: analytics
+  "/events/:eventId/survey",
+  validate(analyticsEventParamsSchema, "params"),
+  handleGetEventSurveyAnalytics,
+);
+
+router.get(
+  // Survey: AI insight
+  "/events/:eventId/survey/insights",
+  validate(analyticsEventParamsSchema, "params"),
+  handleGetEventSurveyInsight,
 );
 
 export default router;

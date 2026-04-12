@@ -18,7 +18,7 @@ import type {
   ErrorRequestHandler,
 } from "express";
 import { ZodError } from "zod";
-import { sendError } from "../utils/apiResponse";
+import { sendError } from "../utils/apiResponse.ts";
 
 type ErrorWithStatusCode = Error & { statusCode: number };
 
@@ -32,35 +32,35 @@ function isErrorWithStatusCode(error: unknown): error is ErrorWithStatusCode {
 }
 
 export const errorHandler: ErrorRequestHandler = (
-    err: unknown,
-    _req: Request,
-    res: Response,
-    _next: NextFunction,
+  err: unknown,
+  _req: Request,
+  res: Response,
+  _next: NextFunction,
 ): void => {
-    // Zod validation errors -> 422 with structured field errors
-    if (err instanceof ZodError) {
-        sendError(res, 422, "Validation failed", err.issues);
-        return;
-    }
+  // Zod validation errors -> 422 with structured field errors
+  if (err instanceof ZodError) {
+    sendError(res, 422, "Validation failed", err.issues);
+    return;
+  }
 
-    // Custom errors with explicit statusCode (e.g. FormBuilderValidationError)
-    if (isErrorWithStatusCode(err)) {
-        sendError(res, err.statusCode, err.message);
-        return;
-    }
+  // Custom errors with explicit statusCode (e.g. FormBuilderValidationError)
+  if (isErrorWithStatusCode(err)) {
+    sendError(res, err.statusCode, err.message);
+    return;
+  }
 
-    // Any other error -> 500
-    if (err instanceof Error) {
-        console.error("[ERROR]", err.message, err.stack);
-        sendError(res, 500, "An unexpected error occured");
-        return;
-    }
+  // Any other error -> 500
+  if (err instanceof Error) {
+    console.error("[ERROR]", err.message, err.stack);
+    sendError(res, 500, "An unexpected error occurred");
+    return;
+  }
 
-    // Safety fallback for non-Error throws
-    console.error("[ERROR] Unknown error type thrown: ", err);
-    sendError(res, 500, "An unexpected error occured");
+  // Safety fallback for non-Error throws
+  console.error("[ERROR] Unknown error type thrown: ", err);
+  sendError(res, 500, "An unexpected error occurred");
 };
 
 export const notFoundHandler: RequestHandler = (_req, res): void => {
-    sendError(res, 404, "Route not found");
+  sendError(res, 404, "Route not found");
 };

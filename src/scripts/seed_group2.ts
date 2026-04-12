@@ -33,7 +33,13 @@ function uid(): string {
   return crypto.randomUUID();
 }
 
+// Used only by the "full reset + seed" flow further below (APPEND_ONLY=false).
 const TARGET_EVENT_ID = new Types.ObjectId("69d4a70045700ab5c84948b1");
+
+// Used by the append-only flow (APPEND_ONLY=true).
+const APPEND_TARGET_EVENT_ID = new Types.ObjectId(
+  process.env.SEED_TARGET_EVENT_ID?.trim() || "69daeef6fefe270dc8bff6e3",
+);
 const CUSTOM_FIELD_IDS = {
   shortText: "05f280af-ba53-4669-988b-49a352594876",
   emailAlt: "d4959350-6f5f-45ec-8a52-f024e7934977",
@@ -46,15 +52,17 @@ const CUSTOM_FIELD_IDS = {
   date: "1984b484-4fa3-4cd0-af19-eb73ebe4fcd1",
 };
 const CUSTOM_FIELD_KEYS = [
-  "short_text_q",
-  "email_q",
-  "phone_q",
-  "number_q",
-  "textarea_q",
-  "radio_q",
-  "checkbox_q",
-  "select_q",
-  "date_q",
+  // Custom questions for eventId=69daeef6fefe270dc8bff6e3
+  "custom-1775962554079-0",
+  "custom-1775962554079-1",
+  "custom-1775962554079-2",
+  "f1813efb-31ca-450f-ae45-98088bc8a9c0",
+  "f7e4e33f-154a-4c26-ac2d-b42c358ba101",
+  "b055c814-f094-4f9a-bafa-8a99095dbf32",
+  "what_concerns_do_you_have_regarding_the_use_of_ai_in_healthcare_select_all_that_apply",
+  "which_topics_did_you_find_most_interesting_in_this_seminar_select_all_that_apply",
+  "what_are_the_main_barriers_to_ai_adoption_in_your_institution_select_all_that_apply",
+  "what_would_you_like_to_see_in_future_conferences_select_all_that_apply",
 ];
 
 const APPEND_ONLY = true;
@@ -69,6 +77,119 @@ function pickMany(items: string[], index: number): string[] {
   return index % 2 === 0 ? [first, second] : [first];
 }
 
+function randInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function pickWeighted(items: Array<{ value: string; weight: number }>): string {
+  const total = items.reduce((sum, item) => sum + item.weight, 0);
+  if (total <= 0) throw new Error("pickWeighted() called with invalid weights");
+  let roll = Math.random() * total;
+  for (const item of items) {
+    roll -= item.weight;
+    if (roll <= 0) return item.value;
+  }
+  return items[items.length - 1]!.value;
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
+
+function toEmailLocalPart(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/(^\\.|\\.$)/g, "")
+    .slice(0, 40);
+}
+
+function companyToDomain(companyName: string): string {
+  const cleaned = companyName
+    .toLowerCase()
+    .replace(/\bpt\.?\b/g, "")
+    .replace(/\btbk\b/g, "")
+    .replace(/[^a-z0-9]+/g, "")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 24);
+  const base = cleaned || "company";
+  const tld = pick(["co.id", "com", "id"], randInt(0, 2));
+  return `${base}.${tld}`;
+}
+
+function makePhone(uniqueIndex: number): string {
+  const prefix = pick(["0812", "0813", "0821", "0852", "0877"], uniqueIndex);
+  const tail = String(1000000 + (uniqueIndex % 9000000)).padStart(7, "0");
+  return `${prefix}${tail}`;
+}
+
+const INDONESIAN_FIRST_NAMES = [
+  "Ahmad",
+  "Budi",
+  "Siti",
+  "Dewi",
+  "Rizki",
+  "Putri",
+  "Dimas",
+  "Fajar",
+  "Nabila",
+  "Anisa",
+  "Raka",
+  "Ayu",
+  "Farhan",
+  "Intan",
+  "Bagas",
+  "Nanda",
+  "Dian",
+  "Hendra",
+  "Rina",
+  "Taufik",
+  "Novi",
+  "Adit",
+  "Rafi",
+  "Maya",
+  "Syifa",
+  "Arif",
+  "Halimah",
+] as const;
+
+const INDONESIAN_LAST_NAMES = [
+  "Santoso",
+  "Pratama",
+  "Saputra",
+  "Wijaya",
+  "Putri",
+  "Utami",
+  "Maulana",
+  "Hidayat",
+  "Suryani",
+  "Setiawan",
+  "Nugroho",
+  "Wibowo",
+  "Purnama",
+  "Siregar",
+  "Nasution",
+  "Kusuma",
+  "Anggraini",
+  "Ramadhan",
+  "Permata",
+] as const;
+
+function makeFullName(uniqueIndex: number): string {
+  const first = pick([...INDONESIAN_FIRST_NAMES], uniqueIndex);
+  const last = pick([...INDONESIAN_LAST_NAMES], uniqueIndex + 7);
+  const maybeMiddle =
+    uniqueIndex % 5 === 0
+      ? ` ${pick([...INDONESIAN_FIRST_NAMES], uniqueIndex + 13)}`
+      : "";
+  return `${first}${maybeMiddle} ${last}`.replace(/\s+/g, " ").trim();
+}
+
 // ---------------------------------------------------------------------------
 // Seed
 // ---------------------------------------------------------------------------
@@ -76,9 +197,11 @@ function pickMany(items: string[], index: number): string[] {
 async function seedAdditionalParticipants(): Promise<void> {
   console.log("\n[SEED] Append-only mode: adding participants...\n");
 
-  const eventDoc = await Event.findById(TARGET_EVENT_ID).lean();
+  const eventDoc = await Event.findById(APPEND_TARGET_EVENT_ID).lean();
   if (!eventDoc) {
-    throw new Error(`Event not found for ID ${TARGET_EVENT_ID.toHexString()}`);
+    throw new Error(
+      `Event not found for ID ${APPEND_TARGET_EVENT_ID.toHexString()}`,
+    );
   }
 
   const [companyDocs, industries, jobTitles, cities, users] = await Promise.all(
@@ -116,6 +239,7 @@ async function seedAdditionalParticipants(): Promise<void> {
     order: number;
     isFixed: boolean;
     options?: Array<{ value: string; label?: string }>;
+    isActive?: boolean;
   }>;
 
   if (!snapshotFields.length) {
@@ -126,7 +250,10 @@ async function seedAdditionalParticipants(): Promise<void> {
   const getField = (key: string) => {
     const field = fieldByKey.get(key);
     if (!field) {
-      throw new Error(`Missing form field for key: ${key}`);
+      const keys = [...fieldByKey.keys()].sort().join(", ");
+      throw new Error(
+        `Missing form field for key: ${key}. Available keys: ${keys}`,
+      );
     }
     return field;
   };
@@ -144,6 +271,7 @@ async function seedAdditionalParticipants(): Promise<void> {
     dept: string;
     jabatan: string;
     jenisLayanan: string;
+    personalEmail: string | null;
     companyEmail: string | null;
     phone: string | null;
     type: "participant" | "exhibitor";
@@ -160,16 +288,33 @@ async function seedAdditionalParticipants(): Promise<void> {
   const generatedCount = 100;
 
   for (let i = 0; i < generatedCount; i += 1) {
-    const index = i + 1;
+    const index = i + 1; // 1-based
     const coIdx = i % companyDocs.length;
-    const ind = industryOptions[i % industryOptions.length]!;
-    const jt = jobTitleOptions[i % jobTitleOptions.length]!;
-    const city = cityOptions[i % cityOptions.length]!;
-    const dept = deptOptions[i % deptOptions.length]!;
-    const status = statusOptions[i % statusOptions.length]!;
+    const ind = pick(industryOptions, randInt(0, industryOptions.length - 1));
+    const jt = pick(jobTitleOptions, randInt(0, jobTitleOptions.length - 1));
+    const city = pick(cityOptions, randInt(0, cityOptions.length - 1));
+    const dept = pick(deptOptions, randInt(0, deptOptions.length - 1));
+    const statusRoll = Math.random();
+    const status =
+      statusRoll < 0.55
+        ? "checked_in"
+        : statusRoll < 0.8
+          ? "approved"
+          : statusRoll < 0.95
+            ? "pending"
+            : "rejected";
+
+    const fullName = makeFullName(index);
+    const domain = companyToDomain(companyDocs[coIdx]!.name);
+    const local = toEmailLocalPart(fullName);
+    const companyEmail = `${local}.${String(index).padStart(3, "0")}@${domain}`;
+    const personalEmail = `${local}.${String(index).padStart(3, "0")}@${pick(
+      ["gmail.com", "yahoo.com", "outlook.com"],
+      index,
+    )}`;
 
     pRaw.push({
-      fullName: `Seed Participant ${index}`,
+      fullName,
       coIdx,
       ind,
       jt,
@@ -177,18 +322,25 @@ async function seedAdditionalParticipants(): Promise<void> {
       dept,
       jabatan: jt.name,
       jenisLayanan: ind.name,
-      companyEmail: `seed${String(index).padStart(3, "0")}@example.com`,
-      phone: `0812000${String(index).padStart(4, "0")}`,
+      personalEmail: Math.random() < 0.08 ? null : personalEmail,
+      companyEmail: Math.random() < 0.1 ? null : companyEmail,
+      phone: Math.random() < 0.05 ? null : makePhone(index),
       type: "participant",
       status,
     });
+
+    // Ensure at least one contact channel exists
+    if (!pRaw[pRaw.length - 1]!.companyEmail && !pRaw[pRaw.length - 1]!.phone) {
+      pRaw[pRaw.length - 1]!.personalEmail = personalEmail;
+      pRaw[pRaw.length - 1]!.phone = makePhone(index + 500);
+    }
   }
 
   const participantDocs = await Participant.insertMany(
     pRaw.map((p) => ({
       fullName: p.fullName,
       normalizedFullName: p.fullName.toLowerCase(),
-      personalEmail: `personal.${p.companyEmail}`,
+      personalEmail: p.personalEmail ?? null,
       companyEmail: p.companyEmail,
       phone: p.phone,
       company: {
@@ -215,9 +367,165 @@ async function seedAdditionalParticipants(): Promise<void> {
     })),
   );
 
-  const radioChoices = ["Basic", "Pro", "Enterprise"];
-  const checkboxChoices = ["CRM", "ERP", "HRIS", "Analytics"];
-  const selectChoices = ["instagram", "linkedin", "website"];
+  const customAnswerGenerators: Record<string, (i: number) => unknown> = {
+    "custom-1775962554079-0": () =>
+      pickWeighted([
+        { value: "Very unfamiliar", weight: 0.12 },
+        { value: "Unfamiliar", weight: 0.22 },
+        { value: "Somewhat familiar", weight: 0.42 },
+        { value: "Familiar", weight: 0.24 },
+      ]),
+    "custom-1775962554079-1": () =>
+      pickWeighted([
+        { value: "No impact", weight: 0.05 },
+        { value: "Small impact", weight: 0.15 },
+        { value: "Moderate impact", weight: 0.45 },
+        { value: "Large impact", weight: 0.35 },
+      ]),
+    "custom-1775962554079-2": () =>
+      pickWeighted([
+        { value: "Do not trust at all", weight: 0.1 },
+        { value: "Do not trust", weight: 0.2 },
+        { value: "Neutral", weight: 0.35 },
+        { value: "Trust", weight: 0.25 },
+        { value: "Strongly trust", weight: 0.1 },
+      ]),
+    "f1813efb-31ca-450f-ae45-98088bc8a9c0": () =>
+      pickWeighted([
+        { value: "Not willing", weight: 0.08 },
+        { value: "Probably not", weight: 0.16 },
+        { value: "Neutral", weight: 0.26 },
+        { value: "Willing", weight: 0.34 },
+        { value: "Very Willing", weight: 0.16 },
+      ]),
+    "f7e4e33f-154a-4c26-ac2d-b42c358ba101": () =>
+      pickWeighted([
+        { value: "Very poort", weight: 0.03 },
+        { value: "Poor", weight: 0.08 },
+        { value: "Fair", weight: 0.22 },
+        { value: "Good", weight: 0.45 },
+        { value: "Excellent", weight: 0.22 },
+      ]),
+    "b055c814-f094-4f9a-bafa-8a99095dbf32": () => {
+      const opts = [
+        "Faster diagnosis",
+        "Higher accuracy",
+        "Cost efficiency",
+        "Personalized treatment",
+        "Support for clinical decision-making",
+      ];
+      const count = pick([1, 2, 2, 3], randInt(0, 10));
+      return shuffle(opts).slice(0, count);
+    },
+    what_concerns_do_you_have_regarding_the_use_of_ai_in_healthcare_select_all_that_apply:
+      () => {
+        const opts = [
+          "Patient data privacy",
+          "Algorithm bias",
+          "Lack of transparency",
+          "Over-reliance on technology",
+          "Unclear regulations",
+        ];
+        const count = pick([1, 2, 2, 3], randInt(0, 10));
+        return shuffle(opts).slice(0, count);
+      },
+    which_topics_did_you_find_most_interesting_in_this_seminar_select_all_that_apply:
+      () => {
+        const opts = [
+          "Machine learning for diagnosis",
+          "AI in radiology",
+          "Natural language processing in medical records",
+          "AI ethics in healthcare",
+          "AI implementation in hospitals",
+        ];
+        const count = pick([1, 2, 2, 3], randInt(0, 10));
+        return shuffle(opts).slice(0, count);
+      },
+    what_are_the_main_barriers_to_ai_adoption_in_your_institution_select_all_that_apply:
+      () =>
+        pickWeighted([
+          { value: "Lack of infrastructure", weight: 0.28 },
+          { value: "High costs", weight: 0.22 },
+          { value: "Lack of skilled professionals", weight: 0.18 },
+          { value: "Resistance from medical staff", weight: 0.2 },
+          { value: "Unclear regulations", weight: 0.1 },
+          { value: "Other: ______", weight: 0.02 },
+        ]),
+    what_would_you_like_to_see_in_future_conferences_select_all_that_apply:
+      () => {
+        const opts = [
+          "Real-world case studies",
+          "Technology demonstrations",
+          "Hands-on workshops",
+          "International speakers",
+          "Research collaboration opportunities",
+        ];
+        const count = pick([1, 2, 2, 3], randInt(0, 10));
+        return shuffle(opts).slice(0, count);
+      },
+  };
+
+  const baseFallbackAnswer = (
+    field: (typeof snapshotFields)[number],
+    raw: PRaw,
+    i: number,
+  ): unknown => {
+    if (customAnswerGenerators[field.key]) {
+      return customAnswerGenerators[field.key]!(i);
+    }
+
+    switch (field.key) {
+      case "full_name":
+        return raw.fullName;
+      case "company_name":
+        return companyDocs[raw.coIdx]!.name;
+      case "company_location":
+        return raw.city.name;
+      case "industry":
+        return raw.ind.name;
+      case "job_title":
+        return raw.jabatan;
+      case "company_email":
+        return raw.companyEmail ?? "";
+      case "personal_email":
+        return raw.personalEmail ?? (raw.companyEmail ? `personal.${raw.companyEmail}` : "");
+      case "phone":
+        return raw.phone ?? "";
+      case "department":
+        return raw.dept;
+      case "jabatan":
+        return raw.jabatan;
+      case "jenis_layanan":
+        return raw.jenisLayanan;
+      case "asal_kota":
+        return raw.city.name;
+      default:
+        break;
+    }
+
+    if (field.type === "radio" || field.type === "select") {
+      const optionValues = (field.options ?? []).map((o) => o.value);
+      return optionValues.length
+        ? pick(optionValues, randInt(0, optionValues.length - 1))
+        : "";
+    }
+
+    if (field.type === "checkbox") {
+      const optionValues = (field.options ?? []).map((o) => o.value);
+      if (!optionValues.length) return [];
+      const count = randInt(1, Math.min(3, optionValues.length));
+      return shuffle(optionValues).slice(0, count);
+    }
+
+    if (field.type === "number") return randInt(1, 100);
+    if (field.type === "date") return new Date(2026, randInt(0, 11), randInt(1, 28));
+    if (field.type === "email") return `alt${String(i + 1).padStart(3, "0")}@example.com`;
+    if (field.type === "phone") return makePhone(i + 1000);
+    if (field.type === "textarea")
+      return `Saya tertarik mengikuti seminar ini untuk menambah wawasan dan networking. (#${i + 1})`;
+    if (field.type === "file") return "https://example.com/uploads/sample.pdf";
+    return `Jawaban ${field.key} #${i + 1}`;
+  };
 
   const registrations = participantDocs.map((participant, i) => {
     const raw = pRaw[i]!;
@@ -228,76 +536,13 @@ async function seedAdditionalParticipants(): Promise<void> {
     const approvedAt = isApproved ? new Date() : null;
     const qrCode = isApproved ? `QR-${uid()}` : null;
 
-    const answers = [
-      {
-        ...getField("full_name"),
-        value: raw.fullName,
-      },
-      {
-        ...getField("company_name"),
-        value: companyDocs[raw.coIdx]!.name,
-      },
-      {
-        ...getField("company_location"),
-        value: raw.city.name,
-      },
-      {
-        ...getField("industry"),
-        value: raw.ind.name,
-      },
-      {
-        ...getField("job_title"),
-        value: raw.jabatan,
-      },
-      {
-        ...getField("company_email"),
-        value: raw.companyEmail ?? "",
-      },
-      {
-        ...getField("personal_email"),
-        value: `personal.${raw.companyEmail}`,
-      },
-      {
-        ...getField("phone"),
-        value: raw.phone ?? "",
-      },
-      {
-        ...getField("short_text_q"),
-        value: `Jawaban singkat ${i + 1}`,
-      },
-      {
-        ...getField("email_q"),
-        value: `alt${String(i + 1).padStart(3, "0")}@example.com`,
-      },
-      {
-        ...getField("phone_q"),
-        value: `0812555${String(i + 1).padStart(4, "0")}`,
-      },
-      {
-        ...getField("number_q"),
-        value: 50 + (i % 450),
-      },
-      {
-        ...getField("textarea_q"),
-        value: `Perusahaan kami bergerak di bidang ${raw.jenisLayanan}.`,
-      },
-      {
-        ...getField("radio_q"),
-        value: pick(radioChoices, i),
-      },
-      {
-        ...getField("checkbox_q"),
-        value: pickMany(checkboxChoices, i),
-      },
-      {
-        ...getField("select_q"),
-        value: pick(selectChoices, i),
-      },
-      {
-        ...getField("date_q"),
-        value: new Date(2025, 9, (i % 28) + 1),
-      },
-    ];
+    const answers = snapshotFields
+      .filter((f) => f.isActive !== false)
+      .sort((a, b) => a.order - b.order)
+      .map((field) => ({
+        ...getField(field.key),
+        value: baseFallbackAnswer(field, raw, i),
+      }));
 
     return {
       eventId: eventDoc._id,

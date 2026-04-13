@@ -712,7 +712,9 @@ async function loadRegistrationAudience(eventId?: string) {
   return { recipients, registrationLookups };
 }
 
-async function loadUnregisteredParticipants(filters: CommunicationAudienceFilters) {
+async function loadUnregisteredParticipants(
+  filters: CommunicationAudienceFilters,
+) {
   const query: Record<string, unknown> = { isActive: true };
 
   const companyId = toObjectId(filters.companyId);
@@ -951,15 +953,18 @@ export async function getCommunicationAudience(
 
   const eventAudience = filters.eventId
     ? await loadRegistrationAudience(filters.eventId)
-    : { recipients: [] as CommunicationAudienceRecipient[], registrationLookups: {} as Record<
-        string,
-        {
-          companyId: string | null;
-          industryId: string | null;
-          jobTitleId: string | null;
-          cityId: string | null;
-        }
-      > };
+    : {
+        recipients: [] as CommunicationAudienceRecipient[],
+        registrationLookups: {} as Record<
+          string,
+          {
+            companyId: string | null;
+            industryId: string | null;
+            jobTitleId: string | null;
+            cityId: string | null;
+          }
+        >,
+      };
 
   let allRecipients: CommunicationAudienceRecipient[] =
     eventAudience.recipients;
@@ -1091,8 +1096,11 @@ export async function previewCommunicationCampaign(
 
   if (!sampleRecipient && input.sampleRegistrationId) {
     sampleRecipient =
-      (await getCampaignRecipientsByParticipantIds([input.sampleRegistrationId]))[0] ??
-      null;
+      (
+        await getCampaignRecipientsByParticipantIds([
+          input.sampleRegistrationId,
+        ])
+      )[0] ?? null;
   }
 
   const fallbackEvent = await loadEventSummary(input.eventId);
@@ -1246,15 +1254,16 @@ export async function createCommunicationCampaign(
     throw new Error("Invalid sender user.");
   }
 
-  const useAllParticipantsMode =
-    input.filters?.status === "all_participants";
+  const useAllParticipantsMode = input.filters?.status === "all_participants";
 
   if (input.mode === "send" && !toObjectId(input.eventId)) {
     throw new Error("Please select an event before sending a broadcast.");
   }
 
   const recipients = useAllParticipantsMode
-    ? await getCampaignRecipientsByParticipantIds(input.recipientRegistrationIds)
+    ? await getCampaignRecipientsByParticipantIds(
+        input.recipientRegistrationIds,
+      )
     : await getCampaignRecipients(input.recipientRegistrationIds);
 
   if (input.mode === "send" && recipients.length === 0) {
@@ -1355,7 +1364,9 @@ export async function createCommunicationCampaign(
       throw new Error(
         error instanceof Error
           ? `RabbitMQ failed to accept the campaign: ${error.message}${
-              existingDraft ? " The draft is still saved and can be retried." : ""
+              existingDraft
+                ? " The draft is still saved and can be retried."
+                : ""
             }`
           : "RabbitMQ failed to accept the campaign.",
       );

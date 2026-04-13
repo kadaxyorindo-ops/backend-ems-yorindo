@@ -13,6 +13,7 @@ import authRouter from "./auth.routes.ts";
 import communicationRouter from "./communication.routes.ts";
 import eventRouter from "./event.routes.ts";
 import userRouter from "./user.routes.ts";
+import feedbackRouter from "./feedbackRoutes.ts";
 import industryRouter from "./industry.routes.ts";
 import formBuilderRoutes from "./formBuilder.routes.ts";
 import visitorRoutes from "./visitor.routes.ts";
@@ -34,7 +35,7 @@ apiV1Router.use("/communications", communicationRouter);
 apiV1Router.use("/events", eventRouter);
 apiV1Router.use("/analytics", analyticsRouter);
 apiV1Router.use("/users", userRouter);
+apiV1Router.use("/feedback", feedbackRouter);
 apiV1Router.use("/surveys", surveyRouter);
-apiV1Router.use("/analytics", analyticsRouter);
 
 export default apiV1Router;

@@ -921,7 +921,9 @@ async function loadEventSummary(eventId?: string | null) {
     return null;
   }
 
-  const event = await Event.findById(objectId).select("title eventDate").lean();
+  const event = await Event.findById(objectId)
+    .select("title eventDate location industry")
+    .lean();
 
   if (!event) {
     return null;
@@ -931,6 +933,8 @@ async function loadEventSummary(eventId?: string | null) {
     id: event._id.toString(),
     title: event.title,
     eventDate: event.eventDate.toISOString(),
+    location: event.location ?? null,
+    industry: event.industry?.name ?? null,
   };
 }
 
@@ -1107,13 +1111,15 @@ export async function previewCommunicationCampaign(
   const templateId = resolveTemplateId(input.templateId);
   const rendered = renderCommunicationEmail({
     templateId,
-    subject: input.subject.trim() || "Tanpa subject",
+    subject: input.subject.trim() || "No subject",
     bodyHtml: input.bodyHtml,
     bodyText: input.bodyText ?? stripHtml(input.bodyHtml),
     recipientName: sampleRecipient?.fullName ?? "Participant Preview",
     recipientEmail: sampleRecipient?.email ?? "participant@example.com",
     eventTitle: sampleRecipient?.eventTitle ?? fallbackEvent?.title ?? null,
     eventDate: sampleRecipient?.eventDate ?? fallbackEvent?.eventDate ?? null,
+    eventLocation: fallbackEvent?.location ?? null,
+    eventIndustry: fallbackEvent?.industry ?? null,
     ...(input.previewText !== undefined
       ? { previewText: input.previewText }
       : {}),
@@ -1446,7 +1452,9 @@ export async function processQueuedCommunicationCampaign(campaignId: string) {
   }
 
   const event = campaign.eventId
-    ? await Event.findById(campaign.eventId).select("title eventDate").lean()
+    ? await Event.findById(campaign.eventId)
+        .select("title eventDate location industry")
+        .lean()
     : null;
 
   const delivery = getEmptyDelivery();
@@ -1463,6 +1471,8 @@ export async function processQueuedCommunicationCampaign(campaignId: string) {
         recipientEmail: recipient.email,
         eventTitle: event?.title ?? null,
         eventDate: event?.eventDate ?? null,
+        eventLocation: event?.location ?? null,
+        eventIndustry: event?.industry?.name ?? null,
       });
 
       await sendEmailMessage({

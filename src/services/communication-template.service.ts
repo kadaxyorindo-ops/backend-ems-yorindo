@@ -27,6 +27,8 @@ type RenderCommunicationEmailInput = {
   recipientEmail: string;
   eventTitle?: string | null;
   eventDate?: Date | string | null;
+  eventLocation?: string | null;
+  eventIndustry?: string | null;
 };
 
 export type RenderCommunicationEmailResult = {
@@ -118,7 +120,7 @@ function formatEventDate(value?: Date | string | null) {
     return null;
   }
 
-  return new Intl.DateTimeFormat("id-ID", {
+  return new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -133,6 +135,8 @@ function buildEmailShell(params: {
   previewText: string;
   eventTitle: string | null;
   eventDateLabel: string | null;
+  eventLocation: string | null;
+  eventIndustry: string | null;
   bodyHtml: string;
   footerNote: string;
   cardStyle: string;
@@ -147,6 +151,12 @@ function buildEmailShell(params: {
     : null;
   const safeEventDate = params.eventDateLabel
     ? escapeHtml(params.eventDateLabel)
+    : null;
+  const safeEventLocation = params.eventLocation
+    ? escapeHtml(params.eventLocation)
+    : null;
+  const safeEventIndustry = params.eventIndustry
+    ? escapeHtml(params.eventIndustry)
     : null;
   const safeFooter = escapeHtml(params.footerNote);
 
@@ -193,20 +203,47 @@ function buildEmailShell(params: {
               </td>
             </tr>
             ${
-              safeEventTitle || safeEventDate
+              safeEventTitle || safeEventDate || safeEventLocation || safeEventIndustry
                 ? `<tr>
               <td style="padding:20px 40px 0;">
-                <div style="border:1px dashed #cbd5e1;border-radius:8px;background:#f8fafc;padding:16px 18px;">
+                <div style="border:1px solid #e2e8f0;border-radius:12px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);padding:20px 22px;overflow:hidden;">
                   ${
                     safeEventTitle
-                      ? `<p style="margin:0;font-size:14px;font-weight:700;color:#0f172a;">${safeEventTitle}</p>`
+                      ? `<p style="margin:0 0 10px;font-size:16px;font-weight:700;color:#0f172a;line-height:1.3;">${safeEventTitle}</p>`
                       : ""
                   }
-                  ${
-                    safeEventDate
-                      ? `<p style="margin:${safeEventTitle ? "8px" : "0"} 0 0;font-size:13px;line-height:1.6;color:#475569;">${safeEventDate}</p>`
-                      : ""
-                  }
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="width:100%;">
+                    ${
+                      safeEventDate
+                        ? `<tr>
+                      <td style="padding:4px 0;vertical-align:top;width:20px;">
+                        <span style="font-size:13px;">&#128197;</span>
+                      </td>
+                      <td style="padding:4px 0 4px 8px;font-size:13px;line-height:1.5;color:#475569;">${safeEventDate}</td>
+                    </tr>`
+                        : ""
+                    }
+                    ${
+                      safeEventLocation
+                        ? `<tr>
+                      <td style="padding:4px 0;vertical-align:top;width:20px;">
+                        <span style="font-size:13px;">&#128205;</span>
+                      </td>
+                      <td style="padding:4px 0 4px 8px;font-size:13px;line-height:1.5;color:#475569;">${safeEventLocation}</td>
+                    </tr>`
+                        : ""
+                    }
+                    ${
+                      safeEventIndustry
+                        ? `<tr>
+                      <td style="padding:4px 0;vertical-align:top;width:20px;">
+                        <span style="font-size:13px;">&#127981;</span>
+                      </td>
+                      <td style="padding:4px 0 4px 8px;font-size:13px;line-height:1.5;color:#475569;">${safeEventIndustry}</td>
+                    </tr>`
+                        : ""
+                    }
+                  </table>
                 </div>
               </td>
             </tr>`
@@ -266,22 +303,53 @@ export function listCommunicationEmailTemplates() {
   );
 }
 
+function replacePlaceholders(
+  content: string,
+  variables: Record<string, string>,
+): string {
+  return content.replace(
+    /\{\{(\w+)\}\}/g,
+    (match, key: string) => variables[key] ?? match,
+  );
+}
+
 export function renderCommunicationEmail(
   input: RenderCommunicationEmailInput,
 ): RenderCommunicationEmailResult {
   const template = getCommunicationEmailTemplate(input.templateId);
-  const normalizedSubject = input.subject.trim();
-  const normalizedBodyHtml = sanitizeMessageHtml(input.bodyHtml);
-  const normalizedBodyText =
-    input.bodyText?.trim() || stripHtml(normalizedBodyHtml);
-  const normalizedPreviewText = normalizePreviewText(
-    input.previewText,
-    normalizedBodyText,
-    normalizedBodyHtml,
-  );
-  const safeSenderName = escapeHtml(env.mailFromName);
   const eventDateLabel = formatEventDate(input.eventDate);
   const eventTitle = input.eventTitle?.trim() || null;
+  const eventLocation = input.eventLocation?.trim() || null;
+  const eventIndustry = input.eventIndustry?.trim() || null;
+
+  const placeholderVars: Record<string, string> = {
+    recipientName: input.recipientName,
+    recipientEmail: input.recipientEmail,
+    eventTitle: eventTitle ?? "",
+    eventDate: eventDateLabel ?? "",
+    eventLocation: eventLocation ?? "",
+    eventIndustry: eventIndustry ?? "",
+  };
+
+  const normalizedSubject = replacePlaceholders(
+    input.subject.trim(),
+    placeholderVars,
+  );
+  const normalizedBodyHtml = sanitizeMessageHtml(
+    replacePlaceholders(input.bodyHtml, placeholderVars),
+  );
+  const normalizedBodyText =
+    replacePlaceholders(input.bodyText?.trim() || "", placeholderVars) ||
+    stripHtml(normalizedBodyHtml);
+  const normalizedPreviewText = replacePlaceholders(
+    normalizePreviewText(
+      input.previewText,
+      normalizedBodyText,
+      normalizedBodyHtml,
+    ),
+    placeholderVars,
+  );
+  const safeSenderName = escapeHtml(env.mailFromName);
   const messageBody = `<div style="font-size:15px;line-height:1.85;color:#334155;">
     ${normalizedBodyHtml}
   </div>`;
@@ -296,6 +364,8 @@ export function renderCommunicationEmail(
       previewText: normalizedPreviewText,
       eventTitle,
       eventDateLabel,
+      eventLocation,
+      eventIndustry,
       bodyHtml: messageBody,
       footerNote: `Email notifications are sent when there are updates to your registered events.`,
       cardStyle:
@@ -312,6 +382,8 @@ export function renderCommunicationEmail(
       previewText: normalizedPreviewText,
       eventTitle,
       eventDateLabel,
+      eventLocation,
+      eventIndustry,
       bodyHtml: messageBody,
       footerNote: `This message was sent automatically from ${safeSenderName}.`,
       cardStyle:
@@ -327,6 +399,8 @@ export function renderCommunicationEmail(
       previewText: normalizedPreviewText,
       eventTitle,
       eventDateLabel,
+      eventLocation,
+      eventIndustry,
       bodyHtml: messageBody,
       footerNote: `Keep this message for future reference regarding your registered event.`,
       cardStyle:
@@ -341,6 +415,8 @@ export function renderCommunicationEmail(
     normalizedBodyText,
     eventTitle ? `Event: ${eventTitle}` : "",
     eventDateLabel ? `Date: ${eventDateLabel}` : "",
+    eventLocation ? `Location: ${eventLocation}` : "",
+    eventIndustry ? `Industry: ${eventIndustry}` : "",
     `Sent by ${env.mailFromName}.`,
   ]
     .filter(Boolean)

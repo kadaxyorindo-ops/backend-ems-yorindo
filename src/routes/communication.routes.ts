@@ -20,7 +20,14 @@ const communicationTemplateSchema = z.enum(COMMUNICATION_EMAIL_TEMPLATE_IDS);
 const audienceQuerySchema = z.object({
   eventId: z.string().trim().optional(),
   status: z
-    .enum(["all", "pending", "approved", "rejected", "checked_in"])
+    .enum([
+      "all",
+      "all_participants",
+      "pending",
+      "approved",
+      "rejected",
+      "checked_in",
+    ])
     .optional(),
   participantType: z.enum(["all", "participant", "exhibitor"]).optional(),
   companyId: z.string().trim().optional(),
@@ -96,7 +103,7 @@ communicationRouter.get("/audience", requireAuth, requirePermission("communicati
     return sendError(
       res,
       400,
-      "Filter audience tidak valid.",
+      "Invalid audience filters.",
       parsedQuery.error.flatten(),
     );
   }
@@ -108,7 +115,7 @@ communicationRouter.get("/audience", requireAuth, requirePermission("communicati
     return sendSuccess(
       res,
       200,
-      "Audience komunikasi berhasil dimuat.",
+      "Communication audience loaded successfully.",
       result,
     );
   } catch (error) {
@@ -117,7 +124,7 @@ communicationRouter.get("/audience", requireAuth, requirePermission("communicati
       400,
       error instanceof Error
         ? error.message
-        : "Gagal memuat audience komunikasi.",
+        : "Failed to load communication audience.",
     );
   }
 });
@@ -126,17 +133,17 @@ communicationRouter.get("/drafts", requireAuth, requirePermission("communication
   const createdByUserId = req.auth?.sub;
 
   if (!createdByUserId) {
-    return sendError(res, 401, "Sesi login tidak ditemukan.");
+    return sendError(res, 401, "Login session not found.");
   }
 
   try {
     const drafts = await listCommunicationDrafts(createdByUserId);
-    return sendSuccess(res, 200, "Daftar draft berhasil dimuat.", drafts);
+    return sendSuccess(res, 200, "Draft list loaded successfully.", drafts);
   } catch (error) {
     return sendError(
       res,
       400,
-      error instanceof Error ? error.message : "Gagal memuat daftar draft.",
+      error instanceof Error ? error.message : "Failed to load draft list.",
     );
   }
 });
@@ -148,21 +155,21 @@ communicationRouter.get("/drafts/:draftId", requireAuth, requirePermission("comm
     : req.params.draftId;
 
   if (!createdByUserId) {
-    return sendError(res, 401, "Sesi login tidak ditemukan.");
+    return sendError(res, 401, "Login session not found.");
   }
 
   if (!draftId) {
-    return sendError(res, 400, "Draft yang diminta tidak valid.");
+    return sendError(res, 400, "The requested draft is invalid.");
   }
 
   try {
     const draft = await getCommunicationDraftDetail(createdByUserId, draftId);
-    return sendSuccess(res, 200, "Draft berhasil dimuat.", draft);
+    return sendSuccess(res, 200, "Draft loaded successfully.", draft);
   } catch (error) {
     return sendError(
       res,
       400,
-      error instanceof Error ? error.message : "Gagal memuat draft.",
+      error instanceof Error ? error.message : "Failed to load draft.",
     );
   }
 });
@@ -174,7 +181,7 @@ communicationRouter.get("/campaigns", requireAuth, requirePermission("communicat
     return sendError(
       res,
       400,
-      "Filter riwayat campaign tidak valid.",
+      "Invalid campaign history filters.",
       parsedQuery.error.flatten(),
     );
   }
@@ -186,7 +193,7 @@ communicationRouter.get("/campaigns", requireAuth, requirePermission("communicat
     return sendSuccess(
       res,
       200,
-      "Riwayat campaign berhasil dimuat.",
+      "Campaign history loaded successfully.",
       campaigns,
     );
   } catch (error) {
@@ -195,7 +202,7 @@ communicationRouter.get("/campaigns", requireAuth, requirePermission("communicat
       400,
       error instanceof Error
         ? error.message
-        : "Gagal memuat riwayat campaign.",
+        : "Failed to load campaign history.",
     );
   }
 });
@@ -207,7 +214,7 @@ communicationRouter.post("/campaigns", requireAuth, requirePermission("communica
     return sendError(
       res,
       400,
-      "Payload campaign email tidak valid.",
+      "Invalid email campaign payload.",
       parsedBody.error.flatten(),
     );
   }
@@ -215,7 +222,7 @@ communicationRouter.post("/campaigns", requireAuth, requirePermission("communica
   const createdByUserId = req.auth?.sub;
 
   if (!createdByUserId) {
-    return sendError(res, 401, "Sesi login tidak ditemukan.");
+    return sendError(res, 401, "Login session not found.");
   }
 
   try {
@@ -251,7 +258,7 @@ communicationRouter.post("/campaigns", requireAuth, requirePermission("communica
     return sendError(
       res,
       400,
-      error instanceof Error ? error.message : "Gagal menyimpan campaign email.",
+      error instanceof Error ? error.message : "Failed to save email campaign.",
     );
   }
 });
@@ -263,7 +270,7 @@ communicationRouter.post("/preview", requireAuth, requirePermission("communicati
     return sendError(
       res,
       400,
-      "Payload preview email tidak valid.",
+      "Invalid email preview payload.",
       parsedBody.error.flatten(),
     );
   }
@@ -287,12 +294,12 @@ communicationRouter.post("/preview", requireAuth, requirePermission("communicati
         : {}),
     });
 
-    return sendSuccess(res, 200, "Preview email berhasil dibuat.", result);
+    return sendSuccess(res, 200, "Email preview generated successfully.", result);
   } catch (error) {
     return sendError(
       res,
       400,
-      error instanceof Error ? error.message : "Gagal membuat preview email.",
+      error instanceof Error ? error.message : "Failed to generate email preview.",
     );
   }
 });

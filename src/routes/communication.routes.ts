@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
+import {
+  requireAuth,
+  requirePermission,
+} from "../middlewares/auth.middleware.ts";
 import { sendError, sendSuccess } from "../utils/apiResponse.ts";
 import {
   createCommunicationCampaign,
@@ -20,7 +23,14 @@ const communicationTemplateSchema = z.enum(COMMUNICATION_EMAIL_TEMPLATE_IDS);
 const audienceQuerySchema = z.object({
   eventId: z.string().trim().optional(),
   status: z
-    .enum(["all", "pending", "approved", "rejected", "checked_in"])
+    .enum([
+      "all",
+      "all_participants",
+      "pending",
+      "approved",
+      "rejected",
+      "checked_in",
+    ])
     .optional(),
   participantType: z.enum(["all", "participant", "exhibitor"]).optional(),
   companyId: z.string().trim().optional(),
@@ -68,7 +78,9 @@ function toAudienceFilters(
   return {
     ...(input.eventId ? { eventId: input.eventId } : {}),
     ...(input.status ? { status: input.status } : {}),
-    ...(input.participantType ? { participantType: input.participantType } : {}),
+    ...(input.participantType
+      ? { participantType: input.participantType }
+      : {}),
     ...(input.companyId ? { companyId: input.companyId } : {}),
     ...(input.industryId ? { industryId: input.industryId } : {}),
     ...(input.jobTitleId ? { jobTitleId: input.jobTitleId } : {}),
@@ -89,212 +101,251 @@ function toCampaignHistoryFilters(
   };
 }
 
-communicationRouter.get("/audience", requireAuth, requirePermission("communication:view"), async (req, res) => {
-  const parsedQuery = audienceQuerySchema.safeParse(req.query);
+communicationRouter.get(
+  "/audience",
+  requireAuth,
+  requirePermission("communication:view"),
+  async (req, res) => {
+    const parsedQuery = audienceQuerySchema.safeParse(req.query);
 
-  if (!parsedQuery.success) {
-    return sendError(
-      res,
-      400,
-      "Filter audience tidak valid.",
-      parsedQuery.error.flatten(),
-    );
-  }
+    if (!parsedQuery.success) {
+      return sendError(
+        res,
+        400,
+        "Invalid audience filters.",
+        parsedQuery.error.flatten(),
+      );
+    }
 
-  try {
-    const result = await getCommunicationAudience(
-      toAudienceFilters(parsedQuery.data),
-    );
-    return sendSuccess(
-      res,
-      200,
-      "Audience komunikasi berhasil dimuat.",
-      result,
-    );
-  } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error
-        ? error.message
-        : "Gagal memuat audience komunikasi.",
-    );
-  }
-});
+    try {
+      const result = await getCommunicationAudience(
+        toAudienceFilters(parsedQuery.data),
+      );
+      return sendSuccess(
+        res,
+        200,
+        "Communication audience loaded successfully.",
+        result,
+      );
+    } catch (error) {
+      return sendError(
+        res,
+        400,
+        error instanceof Error
+          ? error.message
+          : "Failed to load communication audience.",
+      );
+    }
+  },
+);
 
-communicationRouter.get("/drafts", requireAuth, requirePermission("communication:view"), async (req, res) => {
-  const createdByUserId = req.auth?.sub;
+communicationRouter.get(
+  "/drafts",
+  requireAuth,
+  requirePermission("communication:view"),
+  async (req, res) => {
+    const createdByUserId = req.auth?.sub;
 
-  if (!createdByUserId) {
-    return sendError(res, 401, "Sesi login tidak ditemukan.");
-  }
+    if (!createdByUserId) {
+      return sendError(res, 401, "Login session not found.");
+    }
 
-  try {
-    const drafts = await listCommunicationDrafts(createdByUserId);
-    return sendSuccess(res, 200, "Daftar draft berhasil dimuat.", drafts);
-  } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Gagal memuat daftar draft.",
-    );
-  }
-});
+    try {
+      const drafts = await listCommunicationDrafts(createdByUserId);
+      return sendSuccess(res, 200, "Draft list loaded successfully.", drafts);
+    } catch (error) {
+      return sendError(
+        res,
+        400,
+        error instanceof Error ? error.message : "Failed to load draft list.",
+      );
+    }
+  },
+);
 
-communicationRouter.get("/drafts/:draftId", requireAuth, requirePermission("communication:view"), async (req, res) => {
-  const createdByUserId = req.auth?.sub;
-  const draftId = Array.isArray(req.params.draftId)
-    ? req.params.draftId[0]
-    : req.params.draftId;
+communicationRouter.get(
+  "/drafts/:draftId",
+  requireAuth,
+  requirePermission("communication:view"),
+  async (req, res) => {
+    const createdByUserId = req.auth?.sub;
+    const draftId = Array.isArray(req.params.draftId)
+      ? req.params.draftId[0]
+      : req.params.draftId;
 
-  if (!createdByUserId) {
-    return sendError(res, 401, "Sesi login tidak ditemukan.");
-  }
+    if (!createdByUserId) {
+      return sendError(res, 401, "Login session not found.");
+    }
 
-  if (!draftId) {
-    return sendError(res, 400, "Draft yang diminta tidak valid.");
-  }
+    if (!draftId) {
+      return sendError(res, 400, "The requested draft is invalid.");
+    }
 
-  try {
-    const draft = await getCommunicationDraftDetail(createdByUserId, draftId);
-    return sendSuccess(res, 200, "Draft berhasil dimuat.", draft);
-  } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Gagal memuat draft.",
-    );
-  }
-});
+    try {
+      const draft = await getCommunicationDraftDetail(createdByUserId, draftId);
+      return sendSuccess(res, 200, "Draft loaded successfully.", draft);
+    } catch (error) {
+      return sendError(
+        res,
+        400,
+        error instanceof Error ? error.message : "Failed to load draft.",
+      );
+    }
+  },
+);
 
-communicationRouter.get("/campaigns", requireAuth, requirePermission("communication:view"), async (req, res) => {
-  const parsedQuery = campaignHistoryQuerySchema.safeParse(req.query);
+communicationRouter.get(
+  "/campaigns",
+  requireAuth,
+  requirePermission("communication:view"),
+  async (req, res) => {
+    const parsedQuery = campaignHistoryQuerySchema.safeParse(req.query);
 
-  if (!parsedQuery.success) {
-    return sendError(
-      res,
-      400,
-      "Filter riwayat campaign tidak valid.",
-      parsedQuery.error.flatten(),
-    );
-  }
+    if (!parsedQuery.success) {
+      return sendError(
+        res,
+        400,
+        "Invalid campaign history filters.",
+        parsedQuery.error.flatten(),
+      );
+    }
 
-  try {
-    const campaigns = await listCommunicationCampaignHistory(
-      toCampaignHistoryFilters(parsedQuery.data),
-    );
-    return sendSuccess(
-      res,
-      200,
-      "Riwayat campaign berhasil dimuat.",
-      campaigns,
-    );
-  } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error
-        ? error.message
-        : "Gagal memuat riwayat campaign.",
-    );
-  }
-});
+    try {
+      const campaigns = await listCommunicationCampaignHistory(
+        toCampaignHistoryFilters(parsedQuery.data),
+      );
+      return sendSuccess(
+        res,
+        200,
+        "Campaign history loaded successfully.",
+        campaigns,
+      );
+    } catch (error) {
+      return sendError(
+        res,
+        400,
+        error instanceof Error
+          ? error.message
+          : "Failed to load campaign history.",
+      );
+    }
+  },
+);
 
-communicationRouter.post("/campaigns", requireAuth, requirePermission("communication:send"), async (req, res) => {
-  const parsedBody = campaignBodySchema.safeParse(req.body);
+communicationRouter.post(
+  "/campaigns",
+  requireAuth,
+  requirePermission("communication:send"),
+  async (req, res) => {
+    const parsedBody = campaignBodySchema.safeParse(req.body);
 
-  if (!parsedBody.success) {
-    return sendError(
-      res,
-      400,
-      "Payload campaign email tidak valid.",
-      parsedBody.error.flatten(),
-    );
-  }
+    if (!parsedBody.success) {
+      return sendError(
+        res,
+        400,
+        "Invalid email campaign payload.",
+        parsedBody.error.flatten(),
+      );
+    }
 
-  const createdByUserId = req.auth?.sub;
+    const createdByUserId = req.auth?.sub;
 
-  if (!createdByUserId) {
-    return sendError(res, 401, "Sesi login tidak ditemukan.");
-  }
+    if (!createdByUserId) {
+      return sendError(res, 401, "Login session not found.");
+    }
 
-  try {
-    const result = await createCommunicationCampaign({
-      mode: parsedBody.data.mode,
-      ...(parsedBody.data.draftId !== undefined
-        ? { draftId: parsedBody.data.draftId }
-        : {}),
-      templateId: parsedBody.data.templateId,
-      subject: parsedBody.data.subject,
-      bodyHtml: parsedBody.data.bodyHtml,
-      recipientRegistrationIds: parsedBody.data.recipientRegistrationIds,
-      createdByUserId,
-      ...(parsedBody.data.eventId !== undefined
-        ? { eventId: parsedBody.data.eventId }
-        : {}),
-      ...(parsedBody.data.previewText !== undefined
-        ? { previewText: parsedBody.data.previewText }
-        : {}),
-      ...(parsedBody.data.bodyText !== undefined
-        ? { bodyText: parsedBody.data.bodyText }
-        : {}),
-      ...(parsedBody.data.bodyJson !== undefined
-        ? { bodyJson: parsedBody.data.bodyJson }
-        : {}),
-      ...(parsedBody.data.filters
-        ? { filters: toAudienceFilters(parsedBody.data.filters) }
-        : {}),
-    });
+    try {
+      const result = await createCommunicationCampaign({
+        mode: parsedBody.data.mode,
+        ...(parsedBody.data.draftId !== undefined
+          ? { draftId: parsedBody.data.draftId }
+          : {}),
+        templateId: parsedBody.data.templateId,
+        subject: parsedBody.data.subject,
+        bodyHtml: parsedBody.data.bodyHtml,
+        recipientRegistrationIds: parsedBody.data.recipientRegistrationIds,
+        createdByUserId,
+        ...(parsedBody.data.eventId !== undefined
+          ? { eventId: parsedBody.data.eventId }
+          : {}),
+        ...(parsedBody.data.previewText !== undefined
+          ? { previewText: parsedBody.data.previewText }
+          : {}),
+        ...(parsedBody.data.bodyText !== undefined
+          ? { bodyText: parsedBody.data.bodyText }
+          : {}),
+        ...(parsedBody.data.bodyJson !== undefined
+          ? { bodyJson: parsedBody.data.bodyJson }
+          : {}),
+        ...(parsedBody.data.filters
+          ? { filters: toAudienceFilters(parsedBody.data.filters) }
+          : {}),
+      });
 
-    return sendSuccess(res, 201, result.message, result);
-  } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Gagal menyimpan campaign email.",
-    );
-  }
-});
+      return sendSuccess(res, 201, result.message, result);
+    } catch (error) {
+      return sendError(
+        res,
+        400,
+        error instanceof Error
+          ? error.message
+          : "Failed to save email campaign.",
+      );
+    }
+  },
+);
 
-communicationRouter.post("/preview", requireAuth, requirePermission("communication:view"), async (req, res) => {
-  const parsedBody = previewBodySchema.safeParse(req.body);
+communicationRouter.post(
+  "/preview",
+  requireAuth,
+  requirePermission("communication:view"),
+  async (req, res) => {
+    const parsedBody = previewBodySchema.safeParse(req.body);
 
-  if (!parsedBody.success) {
-    return sendError(
-      res,
-      400,
-      "Payload preview email tidak valid.",
-      parsedBody.error.flatten(),
-    );
-  }
+    if (!parsedBody.success) {
+      return sendError(
+        res,
+        400,
+        "Invalid email preview payload.",
+        parsedBody.error.flatten(),
+      );
+    }
 
-  try {
-    const result = await previewCommunicationCampaign({
-      templateId: parsedBody.data.templateId,
-      subject: parsedBody.data.subject,
-      bodyHtml: parsedBody.data.bodyHtml,
-      ...(parsedBody.data.eventId !== undefined
-        ? { eventId: parsedBody.data.eventId }
-        : {}),
-      ...(parsedBody.data.previewText !== undefined
-        ? { previewText: parsedBody.data.previewText }
-        : {}),
-      ...(parsedBody.data.bodyText !== undefined
-        ? { bodyText: parsedBody.data.bodyText }
-        : {}),
-      ...(parsedBody.data.sampleRegistrationId !== undefined
-        ? { sampleRegistrationId: parsedBody.data.sampleRegistrationId }
-        : {}),
-    });
+    try {
+      const result = await previewCommunicationCampaign({
+        templateId: parsedBody.data.templateId,
+        subject: parsedBody.data.subject,
+        bodyHtml: parsedBody.data.bodyHtml,
+        ...(parsedBody.data.eventId !== undefined
+          ? { eventId: parsedBody.data.eventId }
+          : {}),
+        ...(parsedBody.data.previewText !== undefined
+          ? { previewText: parsedBody.data.previewText }
+          : {}),
+        ...(parsedBody.data.bodyText !== undefined
+          ? { bodyText: parsedBody.data.bodyText }
+          : {}),
+        ...(parsedBody.data.sampleRegistrationId !== undefined
+          ? { sampleRegistrationId: parsedBody.data.sampleRegistrationId }
+          : {}),
+      });
 
-    return sendSuccess(res, 200, "Preview email berhasil dibuat.", result);
-  } catch (error) {
-    return sendError(
-      res,
-      400,
-      error instanceof Error ? error.message : "Gagal membuat preview email.",
-    );
-  }
-});
+      return sendSuccess(
+        res,
+        200,
+        "Email preview generated successfully.",
+        result,
+      );
+    } catch (error) {
+      return sendError(
+        res,
+        400,
+        error instanceof Error
+          ? error.message
+          : "Failed to generate email preview.",
+      );
+    }
+  },
+);
 
 export default communicationRouter;

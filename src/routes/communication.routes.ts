@@ -17,6 +17,7 @@ import {
 } from "../services/communication.service.ts";
 import { COMMUNICATION_EMAIL_TEMPLATE_IDS } from "../services/communication-template.service.ts";
 import { generateEmailContent } from "../services/communication-ai.service.ts";
+import { LlmClientError } from "../utils/llmClient.ts";
 
 const communicationRouter = Router();
 const communicationTemplateSchema = z.enum(COMMUNICATION_EMAIL_TEMPLATE_IDS);
@@ -129,6 +130,10 @@ communicationRouter.get(
         result,
       );
     } catch (error) {
+      if (error instanceof LlmClientError) {
+        return sendError(res, error.statusCode, error.message);
+      }
+
       return sendError(
         res,
         400,

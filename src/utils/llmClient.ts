@@ -11,7 +11,13 @@ export type LlmChatMessage = {
 };
 
 export class LlmClientError extends Error {
-  statusCode = 400;
+  statusCode: number;
+
+  constructor(message: string, statusCode = 400) {
+    super(message);
+    this.name = "LlmClientError";
+    this.statusCode = statusCode;
+  }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -20,7 +26,10 @@ function sleep(ms: number): Promise<void> {
 
 export async function chat(messages: LlmChatMessage[]): Promise<string> {
   if (!env.llmBaseUrl || !env.llmApiKey || !env.llmModel) {
-    throw new LlmClientError("LLM is not configured");
+    throw new LlmClientError(
+      "LLM is not configured. Please set LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL.",
+      503,
+    );
   }
 
   const maxRetries = Math.max(0, env.llmRetryAttempts);
@@ -46,13 +55,15 @@ export async function chat(messages: LlmChatMessage[]): Promise<string> {
 
       if (!response.ok) {
         const text = await response.text();
-        const shouldRetry =
-          response.status === 429 || response.status >= 500;
+        const shouldRetry = response.status === 429 || response.status >= 500;
         if (shouldRetry && attempt < maxRetries) {
           await sleep(retryDelayMs);
           continue;
         }
-        throw new Error(`LLM request failed: ${response.status} ${text}`);
+        throw new LlmClientError(
+          `LLM request failed: ${response.status} ${text}`,
+          response.status === 429 ? 429 : 502,
+        );
       }
 
       const data = await response.json();
@@ -62,13 +73,42 @@ export async function chat(messages: LlmChatMessage[]): Promise<string> {
           "",
       );
     } catch (error) {
-      const isAbort =
-        error instanceof Error && error.name === "AbortError";
+      if (error instanceof LlmClientError) {
+        throw error;
+      }
+
+      const isAbort = error instanceof Error && error.name === "AbortError";
       if (isAbort && attempt < maxRetries) {
         await sleep(retryDelayMs);
         continue;
       }
-      throw error;
+
+      if (isAbort) {
+        throw new LlmClientError(
+          "LLM request timed out. Please try again in a moment.",
+          504,
+        );
+      }
+
+      const errorCode =
+        error &&
+        typeof error === "object" &&
+        "cause" in error &&
+        (error as { cause?: { code?: string } }).cause?.code
+          ? String((error as { cause?: { code?: string } }).cause?.code)
+          : "";
+
+      if (errorCode === "ECONNREFUSED") {
+        throw new LlmClientError(
+          `Cannot connect to LLM provider at ${env.llmBaseUrl}. Check LLM_BASE_URL and provider availability.`,
+          503,
+        );
+      }
+
+      throw new LlmClientError(
+        "Failed to reach LLM provider. Please check network and LLM configuration.",
+        503,
+      );
     } finally {
       clearTimeout(timeout);
     }

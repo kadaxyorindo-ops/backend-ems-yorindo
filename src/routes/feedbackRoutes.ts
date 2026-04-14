@@ -1,8 +1,12 @@
 import { Router } from 'express';
-import { requireAuth } from '../middlewares/auth.middleware';
+import { requireAuth, requirePermission } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
-import { handleSubmitFeedback } from '../controllers/FeedbackController';
+import {
+  handleGetEventFeedbackAnalytics,
+  handleSubmitFeedback,
+} from '../controllers/FeedbackController';
 import { feedbackSubmissionSchema } from '../validators/feedback.validators';
+import { analyticsEventParamsSchema } from "../validators/analytic.validators.ts";
 
 const router = Router();
 
@@ -16,6 +20,14 @@ router.post(
   requireAuth, 
   validate(feedbackSubmissionSchema), 
   handleSubmitFeedback
+);
+
+router.get(
+  "/events/:eventId/analytics",
+  requireAuth,
+  requirePermission("analytics:view"),
+  validate(analyticsEventParamsSchema, "params"),
+  handleGetEventFeedbackAnalytics,
 );
 
 export default router;

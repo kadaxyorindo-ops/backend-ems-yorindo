@@ -1,18 +1,18 @@
 import { Router } from "express";
-import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware";
 import {
   getFormBuilderHandler,
   getFormBuilderByIndustryHandler,
   getFormBuilderBySlugHandler,
   upsertFormBuilderHandler,
-} from "../controllers/formBuilder.controller.ts";
-import { validate } from "../middlewares/validate.middleware.ts";
+} from "../controllers/formBuilder.controller";
+import { validate } from "../middlewares/validate.middleware";
 import {
   formBuilderEventParamsSchema,
   formBuilderIndustryParamsSchema,
   formBuilderSlugParamsSchema,
   formBuilderUpsertBodySchema,
-} from "../validators/formBuilder.validators.ts";
+} from "../validators/formBuilder.validators";
 
 const router = Router();
 

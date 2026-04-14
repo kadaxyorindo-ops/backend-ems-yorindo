@@ -4,20 +4,20 @@
  *
  * Rules:
  *  - No Express types (Request, Response) here — this layer is HTTP-agnostic.
- *  - Import models ONLY from "../models/index.ts" (project convention).
+ *  - Import models ONLY from "../models/index" (project convention).
  *  - All DB errors propagate naturally; the controller catches them via next().
  */
 
-import { Event, Registration } from "../models/index.ts";
-import type { IEvent } from "../models/schemas/event.schema.ts";
+import { Event, Registration } from "../models/index";
+import type { IEvent } from "../models/schemas/event.schema";
 import type {
   GetAllEventsQuery,
   CreateEventBody,
   UpdateEventBody,
-} from "../validators/event.validators.ts";
-import type { PaginatedData } from "../types/api/index.ts";
+} from "../validators/event.validators";
+import type { PaginatedData } from "../types/api/index";
 import { Types, type PipelineStage } from "mongoose";
-import { slugifyUnique } from "../utils/slugify.ts";
+import { slugifyUnique } from "../utils/slugify";
 
 // ---------------------------------------------------------------------------
 // Types

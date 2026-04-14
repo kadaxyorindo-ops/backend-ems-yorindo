@@ -3,8 +3,8 @@
  * @description AI-generated insights for event survey responses.
  */
 
-import { Event, SurveyResponse } from "../models/index.ts";
-import { chat } from "../utils/llmClient.ts";
+import { Event, SurveyResponse } from "../models/index";
+import { chat } from "../utils/llmClient";
 
 export class SurveyInsightUnavailableError extends Error {
   statusCode = 400;

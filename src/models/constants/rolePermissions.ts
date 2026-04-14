@@ -12,7 +12,7 @@
  * entirely, so their permissions array is unused.
  */
 
-import type { Permission } from "./enums.ts";
+import type { Permission } from "./enums";
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
   event_operator: [

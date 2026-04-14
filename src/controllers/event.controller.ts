@@ -12,7 +12,7 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
-import type { GetAllEventsQuery } from "../validators/event.validators.ts";
+import type { GetAllEventsQuery } from "../validators/event.validators";
 import {
   getAllEvents,
   getEventById,
@@ -21,13 +21,13 @@ import {
   updateEvent,
   deleteEvent,
   hardDeleteEvent,
-} from "../services/event.service.ts";
-import { sendSuccess, sendError } from "../utils/apiResponse.ts";
+} from "../services/event.service";
+import { sendSuccess, sendError } from "../utils/apiResponse";
 import type {
   CreateEventBody,
   EventParams,
   UpdateEventBody,
-} from "../validators/event.validators.ts";
+} from "../validators/event.validators";
 
 // ---------------------------------------------------------------------------
 // GET /api/v1/events

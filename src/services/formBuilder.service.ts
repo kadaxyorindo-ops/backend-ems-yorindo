@@ -1,17 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { Types } from "mongoose";
-import { Event, Industry } from "../models/index.ts";
-import { STATUS } from "../models/constants/enums.ts";
-import type { FieldType } from "../models/constants/enums.ts";
-import type { IRegistrationField } from "../models/schemas/sub/registration-field.schema.ts";
-import type { IOption } from "../models/schemas/sub/option.schema.ts";
+import { Event, Industry } from "../models/index";
+import { STATUS } from "../models/constants/enums";
+import type { FieldType } from "../models/constants/enums";
+import type { IRegistrationField } from "../models/schemas/sub/registration-field.schema";
+import type { IOption } from "../models/schemas/sub/option.schema";
 import type {
   FormBuilderFieldInput,
   FormBuilderOptionInput,
   FormBuilderUpsertRequest,
   FormBuilderFieldView,
   FormBuilderView,
-} from "../types/api/index.ts";
+} from "../types/api/index";
 
 export class FormBuilderValidationError extends Error {
   statusCode = 400;

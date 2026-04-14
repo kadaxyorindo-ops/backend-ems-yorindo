@@ -3,17 +3,17 @@
  * @description Combined payload for survey analytics + insights (UI-friendly).
  */
 
-import { SurveyResponse } from "../models/index.ts";
-import { LlmClientError } from "../utils/llmClient.ts";
-import type { SurveyAnalyticsInsight } from "./survey-analytic-insight.service.ts";
+import { SurveyResponse } from "../models/index";
+import { LlmClientError } from "../utils/llmClient";
+import type { SurveyAnalyticsInsight } from "./survey-analytic-insight.service";
 import {
   SurveyInsightUnavailableError,
   getEventSurveyInsight,
-} from "./survey-analytic-insight.service.ts";
+} from "./survey-analytic-insight.service";
 import {
   getEventSurveyAnalytics,
   type SurveyAnalyticsItem,
-} from "./survey-analytic.service.ts";
+} from "./survey-analytic.service";
 
 export interface EventSurveyAnalyticsOverviewResult {
   eventId: string;

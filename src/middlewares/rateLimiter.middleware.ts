@@ -1,5 +1,5 @@
 import rateLimit from "express-rate-limit";
-import { sendError } from "../utils/apiResponse.ts";
+import { sendError } from "../utils/apiResponse";
 
 export const requestOtpLimiter = rateLimit({
   windowMs: 60_000,

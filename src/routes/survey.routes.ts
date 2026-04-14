@@ -9,7 +9,7 @@
 
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware";
 
 const router = Router();
 

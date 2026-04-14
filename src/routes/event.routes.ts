@@ -16,13 +16,13 @@
  */
 
 import { Router } from "express";
-import { validate } from "../middlewares/validate.middleware.ts";
+import { validate } from "../middlewares/validate.middleware";
 import {
   getAllEventsQuerySchema,
   createEventBodySchema,
   updateEventBodySchema,
   eventParamsSchema,
-} from "../validators/event.validators.ts";
+} from "../validators/event.validators";
 import {
   handleGetAllEvents,
   handleGetEventById,
@@ -31,13 +31,13 @@ import {
   handleUpdateEvent,
   handleDeleteEvent,
   handleHardDeleteEvent,
-} from "../controllers/event.controller.ts";
+} from "../controllers/event.controller";
 import {
   requireAuth,
   requirePermission,
-} from "../middlewares/auth.middleware.ts";
-import registrationRouter from "./registration.routes.ts";
-import checkInRouter from "./checkin.routes.ts";
+} from "../middlewares/auth.middleware";
+import registrationRouter from "./registration.routes";
+import checkInRouter from "./checkin.routes";
 
 const router = Router();
 

@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { sendError, sendSuccess } from "../utils/apiResponse.ts";
+import { sendError, sendSuccess } from "../utils/apiResponse";
 import {
   CheckInError,
   getCheckInStats,
@@ -7,14 +7,14 @@ import {
   lookupCheckInCandidates,
   manualCheckIn,
   scanCheckIn,
-} from "../services/checkin.service.ts";
+} from "../services/checkin.service";
 import type {
   CheckInEventParams,
   CheckInLookupQuery,
   ManualCheckInBody,
   RecentCheckInsQuery,
   ScanCheckInBody,
-} from "../validators/checkin.validators.ts";
+} from "../validators/checkin.validators";
 
 function handleCheckInFailure(
   error: unknown,

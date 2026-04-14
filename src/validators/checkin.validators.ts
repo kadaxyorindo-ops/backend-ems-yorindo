@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { objectIdSchema } from "./event.validators.ts";
+import { objectIdSchema } from "./event.validators";
 
 export const checkInEventParamsSchema = z.object({
   eventId: objectIdSchema,

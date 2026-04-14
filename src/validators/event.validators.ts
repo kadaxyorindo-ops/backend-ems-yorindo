@@ -11,7 +11,7 @@
  */
 
 import { z } from "zod";
-import { STATUS } from "../models/constants/enums.ts";
+import { STATUS } from "../models/constants/enums";
 
 // Reusable ObjectId validator — used for :id params and reference fields
 export const objectIdSchema = z

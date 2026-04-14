@@ -18,7 +18,7 @@ import type {
   ErrorRequestHandler,
 } from "express";
 import { ZodError } from "zod";
-import { sendError } from "../utils/apiResponse.ts";
+import { sendError } from "../utils/apiResponse";
 
 type ErrorWithStatusCode = Error & { statusCode: number };
 

@@ -1,16 +1,16 @@
 import "dotenv/config";
 import { networkInterfaces } from "node:os";
-import app from "./app.ts";
-import { verifyBrevoSMTP } from "./config/brevo.ts";
-import { connectDB, registerDBListeners } from "./config/db.ts";
-import { env, isUsingDefaultJwtSecret } from "./config/env.ts";
+import app from "./app";
+import { verifyBrevoSMTP } from "./config/brevo";
+import { connectDB, registerDBListeners } from "./config/db";
+import { env, isUsingDefaultJwtSecret } from "./config/env";
 import {
   startEmailQueueConsumer,
   verifyEmailQueueConnection,
   type EmailQueueJob,
-} from "./services/email-queue.service.ts";
-import { processQueuedCommunicationCampaign } from "./services/communication.service.ts";
-import { processQueuedRegistrationTicketEmail } from "./services/registration-ticket.service.ts";
+} from "./services/email-queue.service";
+import { processQueuedCommunicationCampaign } from "./services/communication.service";
+import { processQueuedRegistrationTicketEmail } from "./services/registration-ticket.service";
 
 const port = env.port;
 

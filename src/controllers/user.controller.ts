@@ -7,7 +7,7 @@ import type {
   UpdateUserBody,
   UserParams,
 } from "../validators/user.validators";
-import { DEFAULT_ROLE_PERMISSIONS } from "../models/constants/rolePermissions.ts";
+import { DEFAULT_ROLE_PERMISSIONS } from "../models/constants/rolePermissions";
 
 export async function handleGetUsers(
   _req: Request,

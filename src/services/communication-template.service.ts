@@ -1,5 +1,5 @@
-import { env } from "../config/env.ts";
-import { YORINDO_LOGO_CID } from "./email.service.ts";
+import { env } from "../config/env";
+import { YORINDO_LOGO_CID } from "./email.service";
 
 export const COMMUNICATION_EMAIL_TEMPLATE_IDS = [
   "executive_brief",

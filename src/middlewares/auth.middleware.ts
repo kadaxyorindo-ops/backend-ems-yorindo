@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
-import { sendError } from "../utils/apiResponse.ts";
-import { verifyAccessToken } from "../utils/jwt.ts";
-import type { Permission, SystemRole } from "../models/constants/enums.ts";
+import { sendError } from "../utils/apiResponse";
+import { verifyAccessToken } from "../utils/jwt";
+import type { Permission, SystemRole } from "../models/constants/enums";
 
 export function requireAuth(
   req: Request,

@@ -8,11 +8,11 @@
  *
  * Rules:
  *  - No Express types here — HTTP-agnostic.
- *  - Import models ONLY from "../models/index.ts".
+ *  - Import models ONLY from "../models/index".
  */
 
-import { Industry } from "../models/index.ts";
-import type { IIndustry } from "../models/schemas/industry.schema.ts";
+import { Industry } from "../models/index";
+import type { IIndustry } from "../models/schemas/industry.schema";
 
 export type LeanIndustry = IIndustry & { _id: unknown };
 

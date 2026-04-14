@@ -4,17 +4,17 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
-import { sendError, sendSuccess } from "../utils/apiResponse.ts";
+import { sendError, sendSuccess } from "../utils/apiResponse";
 import type {
   AnalyticsEventParams,
   AnalyticsOverviewQuery,
   AnalyticsInsightsQuery,
-} from "../validators/analytic.validators.ts";
+} from "../validators/analytic.validators";
 import {
   getEventParticipantAnalytics,
   getEventAnalyticsOverview,
-} from "../services/event-analytic.service.ts";
-import { getEventAnalyticsInsights } from "../services/event-analytic-insight.service.ts";
+} from "../services/event-analytic.service";
+import { getEventAnalyticsInsights } from "../services/event-analytic-insight.service";
 
 export async function handleGetEventParticipantAnalytics(
   _req: Request,

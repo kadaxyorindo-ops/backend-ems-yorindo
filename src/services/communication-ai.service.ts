@@ -11,9 +11,9 @@
  * in a single LLM call based on event context and optional admin instructions.
  */
 
-import { Event } from "../models/schemas/event.schema.ts";
-import { Registration } from "../models/schemas/registration.schema.ts";
-import { chat } from "../utils/llmClient.ts";
+import { Event } from "../models/schemas/event.schema";
+import { Registration } from "../models/schemas/registration.schema";
+import { chat } from "../utils/llmClient";
 
 export interface GenerateEmailContentInput {
   eventId: string;

@@ -3,9 +3,9 @@
  * @description Analytics queries for event participant metrics.
  */
 
-import { Event, Registration } from "../models/index.ts";
+import { Event, Registration } from "../models/index";
 import { Types } from "mongoose";
-import { STATUS } from "../models/constants/enums.ts";
+import { STATUS } from "../models/constants/enums";
 
 export interface EventParticipantAnalyticsSummary {
   eventId: string;

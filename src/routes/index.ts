@@ -9,22 +9,22 @@
  */
 
 import { Router } from "express";
-import authRouter from "./auth.routes.ts";
-import communicationRouter from "./communication.routes.ts";
-import eventRouter from "./event.routes.ts";
-import userRouter from "./user.routes.ts";
-import feedbackRouter from "./feedbackRoutes.ts";
-import industryRouter from "./industry.routes.ts";
-import formBuilderRoutes from "./formBuilder.routes.ts";
-import visitorRoutes from "./visitor.routes.ts";
-import surveyRouter from "./survey.routes.ts";
-import analyticsRouter from "./analytics.routes.ts";
-import surveyAnalyticRoutes from "./survey-analytic.routes.ts";
+import authRouter from "./auth.routes";
+import communicationRouter from "./communication.routes";
+import eventRouter from "./event.routes";
+import userRouter from "./user.routes";
+import feedbackRouter from "./feedbackRoutes";
+import industryRouter from "./industry.routes";
+import formBuilderRoutes from "./formBuilder.routes";
+import visitorRoutes from "./visitor.routes";
+import surveyRouter from "./survey.routes";
+import analyticsRouter from "./analytics.routes";
+import surveyAnalyticRoutes from "./survey-analytic.routes";
 import {
   getAuthenticatedUser,
   requestLoginOtp,
   verifyLoginOtp,
-} from "../services/auth.service.ts";
+} from "../services/auth.service";
 
 const apiV1Router = Router();
 

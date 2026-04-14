@@ -1,11 +1,11 @@
 import { randomInt } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { AuditLog, Otp, User } from "../models/index.ts";
-import { STATUS, type SystemRole } from "../models/constants/enums.ts";
-import { DEFAULT_ROLE_PERMISSIONS } from "../models/constants/rolePermissions.ts";
-import { env } from "../config/env.ts";
-import { sendLoginOtpEmail } from "./email.service.ts";
-import { signAccessToken } from "../utils/jwt.ts";
+import { AuditLog, Otp, User } from "../models/index";
+import { STATUS, type SystemRole } from "../models/constants/enums";
+import { DEFAULT_ROLE_PERMISSIONS } from "../models/constants/rolePermissions";
+import { env } from "../config/env";
+import { sendLoginOtpEmail } from "./email.service";
+import { signAccessToken } from "../utils/jwt";
 
 const SYSTEM_ROLE_SET = new Set<SystemRole>(STATUS.SYSTEM_ROLE);
 

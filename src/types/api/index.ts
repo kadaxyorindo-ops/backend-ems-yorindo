@@ -1,5 +1,5 @@
-import type { FieldType } from "../../models/constants/enums.ts";
-import type { IRegistrationField } from "../../models/schemas/sub/registration-field.schema.ts";
+import type { FieldType } from "../../models/constants/enums";
+import type { IRegistrationField } from "../../models/schemas/sub/registration-field.schema";
 
 export interface FormBuilderOptionInput {
   value: string;

@@ -3,7 +3,7 @@
  * @description Simple reusable LLM client (chat completions).
  */
 
-import { env } from "../config/env.ts";
+import { env } from "../config/env";
 
 export type LlmChatMessage = {
   role: "system" | "developer" | "user" | "assistant";

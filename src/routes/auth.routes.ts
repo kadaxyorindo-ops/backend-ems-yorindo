@@ -1,17 +1,17 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth } from "../middlewares/auth.middleware.ts";
+import { requireAuth } from "../middlewares/auth.middleware";
 import {
   requestOtpLimiter,
   verifyOtpLimiter,
-} from "../middlewares/rateLimiter.middleware.ts";
-import { validate } from "../middlewares/validate.middleware.ts";
-import { sendError, sendSuccess } from "../utils/apiResponse.ts";
+} from "../middlewares/rateLimiter.middleware";
+import { validate } from "../middlewares/validate.middleware";
+import { sendError, sendSuccess } from "../utils/apiResponse";
 import {
   getAuthenticatedUser,
   requestLoginOtp,
   verifyLoginOtp,
-} from "../services/auth.service.ts";
+} from "../services/auth.service";
 
 const authRouter = Router();
 

@@ -4,8 +4,8 @@
  */
 
 import { Types } from "mongoose";
-import type { SurveyQuestionType } from "../models/constants/enums.ts";
-import { Event, SurveyResponse } from "../models/index.ts";
+import type { SurveyQuestionType } from "../models/constants/enums";
+import { Event, SurveyResponse } from "../models/index";
 
 export interface SurveyAnalyticsItem {
   type: "chart" | "text_list";

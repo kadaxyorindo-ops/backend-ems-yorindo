@@ -8,23 +8,23 @@ import type { Request, Response } from "express";
 import {
   requireAuth,
   requirePermission,
-} from "../middlewares/auth.middleware.ts";
-import { validate } from "../middlewares/validate.middleware.ts";
+} from "../middlewares/auth.middleware";
+import { validate } from "../middlewares/validate.middleware";
 import {
   analyticsEventParamsSchema,
   analyticsOverviewQuerySchema,
   analyticsInsightsQuerySchema,
-} from "../validators/analytic.validators.ts";
+} from "../validators/analytic.validators";
 import {
   handleGetEventAnalyticsOverview,
   handleGetEventParticipantAnalytics,
   handleGetEventAnalyticsInsights,
-} from "../controllers/event-analytic.controller.ts";
+} from "../controllers/event-analytic.controller";
 import {
   handleGetEventSurveyAnalytics,
   handleGetEventSurveyAnalyticsOverview,
   handleGetEventSurveyInsight,
-} from "../controllers/survey-analytic.controller.ts";
+} from "../controllers/survey-analytic.controller";
 
 const router = Router();
 

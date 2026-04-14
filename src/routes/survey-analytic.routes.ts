@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
-import { validate } from "../middlewares/validate.middleware.ts";
-import { analyticsEventParamsSchema } from "../validators/analytic.validators.ts";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware";
+import { validate } from "../middlewares/validate.middleware";
+import { analyticsEventParamsSchema } from "../validators/analytic.validators";
 import {
   handleGetEventSurveyAnalytics,
   handleGetEventSurveyAnalyticsOverview,
   handleGetEventSurveyInsight,
-} from "../controllers/survey-analytic.controller.ts";
+} from "../controllers/survey-analytic.controller";
 
 const router = Router();
 

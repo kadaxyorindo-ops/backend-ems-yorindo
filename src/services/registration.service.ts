@@ -4,17 +4,17 @@
  */
 
 import { Types } from "mongoose";
-import { Registration } from "../models/index.ts";
+import { Registration } from "../models/index";
 import type {
   BulkRejectBody,
   GetRegistrationsQuery,
   RejectBody,
-} from "../validators/registration.validators.ts";
+} from "../validators/registration.validators";
 import {
   buildRegistrationTicket,
   queueApprovedRegistrationTicketEmails,
   queueRegistrationTicketEmail,
-} from "./registration-ticket.service.ts";
+} from "./registration-ticket.service";
 
 interface RegistrationMeta {
   approvedCount: number;

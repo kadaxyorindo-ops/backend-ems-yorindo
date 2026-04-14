@@ -6,15 +6,15 @@ function generateQRCode(): string {
 
 import QRCode from "qrcode";
 import { Types } from "mongoose";
-import { Event, Participant, Registration } from "../models/index.ts";
+import { Event, Participant, Registration } from "../models/index";
 import {
   escapeEmailHtml,
   getYorindoLogoAttachment,
   sendEmailMessage,
   YORINDO_LOGO_CID,
-} from "./email.service.ts";
-import { signRegistrationTicket } from "../utils/jwt.ts";
-import { enqueueRegistrationTicketJob } from "./email-queue.service.ts";
+} from "./email.service";
+import { signRegistrationTicket } from "../utils/jwt";
+import { enqueueRegistrationTicketJob } from "./email-queue.service";
 
 export type RegistrationTicketQueueResult = {
   queueAccepted: boolean;

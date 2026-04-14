@@ -4,15 +4,15 @@ import {
   Event,
   Participant,
   Registration,
-} from "../models/index.ts";
-import { env } from "../config/env.ts";
-import { getYorindoLogoAttachment, sendEmailMessage } from "./email.service.ts";
-import { enqueueCommunicationCampaignJob } from "./email-queue.service.ts";
+} from "../models/index";
+import { env } from "../config/env";
+import { getYorindoLogoAttachment, sendEmailMessage } from "./email.service";
+import { enqueueCommunicationCampaignJob } from "./email-queue.service";
 import {
   COMMUNICATION_EMAIL_TEMPLATE_IDS,
   renderCommunicationEmail,
   type CommunicationEmailTemplateId,
-} from "./communication-template.service.ts";
+} from "./communication-template.service";
 
 type RegistrationStatusFilter =
   | "all"

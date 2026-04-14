@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { STATUS } from "../models/constants/enums.ts"; // SYSTEM_ROLE used for role validation
+import { STATUS } from "../models/constants/enums"; // SYSTEM_ROLE used for role validation
 
 export const getUsersQuerySchema = z.object({
   page:   z.coerce.number().int().min(1).default(1),

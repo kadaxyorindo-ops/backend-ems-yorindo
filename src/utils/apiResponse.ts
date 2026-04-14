@@ -1,5 +1,5 @@
 ﻿import type { Response } from "express";
-import type { ApiErrorResponse, ApiSuccessResponse } from "../types/api/index.ts";
+import type { ApiErrorResponse, ApiSuccessResponse } from "../types/api/index";
 
 export function sendSuccess<T>(
   res: Response,

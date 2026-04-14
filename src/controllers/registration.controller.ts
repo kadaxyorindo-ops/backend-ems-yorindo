@@ -4,7 +4,7 @@
  */
 
 import type { NextFunction, Request, Response } from "express";
-import { sendError, sendSuccess } from "../utils/apiResponse.ts";
+import { sendError, sendSuccess } from "../utils/apiResponse";
 import type {
   BulkApproveBody,
   BulkRejectBody,
@@ -12,7 +12,7 @@ import type {
   GetRegistrationsQuery,
   RegistrationParams,
   RejectBody,
-} from "../validators/registration.validators.ts";
+} from "../validators/registration.validators";
 import {
   approveRegistration,
   bulkApproveRegistrations,
@@ -21,7 +21,7 @@ import {
   getRegistrations,
   rejectAllPending,
   rejectRegistration,
-} from "../services/registration.service.ts";
+} from "../services/registration.service";
 
 export async function handleGetRegistrations(
   _req: Request,

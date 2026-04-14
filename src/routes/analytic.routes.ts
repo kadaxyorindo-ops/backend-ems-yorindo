@@ -1,15 +1,15 @@
 import { Router } from "express";
-import { validate } from "../middlewares/validate.middleware.ts";
+import { validate } from "../middlewares/validate.middleware";
 import {
   analyticsEventParamsSchema,
   analyticsOverviewQuerySchema,
   analyticsInsightsQuerySchema,
-} from "../validators/analytic.validators.ts";
+} from "../validators/analytic.validators";
 import {
   handleGetEventAnalyticsOverview,
   handleGetEventParticipantAnalytics,
   handleGetEventAnalyticsInsights,
-} from "../controllers/event-analytic.controller.ts";
+} from "../controllers/event-analytic.controller";
 
 const router = Router();
 

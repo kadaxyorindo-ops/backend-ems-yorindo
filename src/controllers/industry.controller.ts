@@ -6,8 +6,8 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
-import { getAllIndustries, createIndustry } from "../services/industry.service.ts";
-import { sendSuccess, sendError } from "../utils/apiResponse.ts";
+import { getAllIndustries, createIndustry } from "../services/industry.service";
+import { sendSuccess, sendError } from "../utils/apiResponse";
 
 /**
  * GET /api/v1/industries

@@ -1,6 +1,6 @@
 import amqp from "amqplib";
 import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
-import { env } from "../config/env.ts";
+import { env } from "../config/env";
 
 export type CommunicationCampaignEmailJob = {
   type: "communication-campaign";

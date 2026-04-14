@@ -4,9 +4,9 @@
  */
 
 import { Types } from "mongoose";
-import { getEventAnalyticsOverview } from "./event-analytic.service.ts";
-import { EventAnalyticInsightCache } from "../models/index.ts";
-import { chat } from "../utils/llmClient.ts";
+import { getEventAnalyticsOverview } from "./event-analytic.service";
+import { EventAnalyticInsightCache } from "../models/index";
+import { chat } from "../utils/llmClient";
 
 export interface EventAnalyticsInsight {
   summary: string;

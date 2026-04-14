@@ -4,8 +4,8 @@
  */
 
 import { z } from "zod";
-import { STATUS } from "../models/constants/enums.ts";
-import { objectIdSchema } from "./event.validators.ts";
+import { STATUS } from "../models/constants/enums";
+import { objectIdSchema } from "./event.validators";
 
 const FIELD_TYPE_INPUT = [
   ...STATUS.FIELD_TYPE,
@@ -58,7 +58,9 @@ export const formBuilderEventParamsSchema = z.object({
   eventId: objectIdSchema,
 });
 
-export type FormBuilderEventParams = z.infer<typeof formBuilderEventParamsSchema>;
+export type FormBuilderEventParams = z.infer<
+  typeof formBuilderEventParamsSchema
+>;
 
 export const formBuilderIndustryParamsSchema = z.object({
   industryId: objectIdSchema,

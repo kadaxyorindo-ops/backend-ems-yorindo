@@ -7,8 +7,8 @@
  */
 
 import { z } from "zod";
-import { STATUS } from "../models/constants/enums.ts";
-import { objectIdSchema } from "./event.validators.ts";
+import { STATUS } from "../models/constants/enums";
+import { objectIdSchema } from "./event.validators";
 
 // --- Params ---
 

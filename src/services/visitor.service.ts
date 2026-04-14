@@ -3,16 +3,16 @@
  * @description Business logic for visitor registration.
  */
 
-import City from "../models/City.ts";
-import Company from "../models/Company.ts";
-import Industry from "../models/Industry.ts";
-import JobTitle from "../models/JobTitle.ts";
-import Participant from "../models/Participant.ts";
-import Registration from "../models/Registration.ts";
-import SurveyResponse from "../models/SurveyResponse.ts";
-import { Event } from "../models/index.ts";
-import type { IRegistrationField } from "../models/schemas/sub/registration-field.schema.ts";
-import type { VisitorRegistrationBody } from "../validators/visitor.validators.ts";
+import City from "../models/City";
+import Company from "../models/Company";
+import Industry from "../models/Industry";
+import JobTitle from "../models/JobTitle";
+import Participant from "../models/Participant";
+import Registration from "../models/Registration";
+import SurveyResponse from "../models/SurveyResponse";
+import { Event } from "../models/index";
+import type { IRegistrationField } from "../models/schemas/sub/registration-field.schema";
+import type { VisitorRegistrationBody } from "../validators/visitor.validators";
 
 interface CustomAnswerInput {
   fieldId?: string | undefined;

@@ -1,8 +1,8 @@
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { createBrevoTransporter } from "../config/brevo.ts";
-import { env } from "../config/env.ts";
+import { createBrevoTransporter } from "../config/brevo";
+import { env } from "../config/env";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const LOGO_PATH = join(__dirname, "../assets/yorindo-logo.png");

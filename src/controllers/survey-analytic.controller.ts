@@ -4,11 +4,11 @@
  */
 
 import type { NextFunction, Request, Response } from "express";
-import { sendError, sendSuccess } from "../utils/apiResponse.ts";
-import type { AnalyticsEventParams } from "../validators/analytic.validators.ts";
-import { getEventSurveyAnalytics } from "../services/survey-analytic.service.ts";
-import { getEventSurveyInsight } from "../services/survey-analytic-insight.service.ts";
-import { getEventSurveyAnalyticsOverview } from "../services/survey-analytic-overview.service.ts";
+import { sendError, sendSuccess } from "../utils/apiResponse";
+import type { AnalyticsEventParams } from "../validators/analytic.validators";
+import { getEventSurveyAnalytics } from "../services/survey-analytic.service";
+import { getEventSurveyInsight } from "../services/survey-analytic-insight.service";
+import { getEventSurveyAnalyticsOverview } from "../services/survey-analytic-overview.service";
 
 export async function handleGetEventSurveyAnalytics(
   _req: Request,

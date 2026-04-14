@@ -3,16 +3,16 @@ import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
-import { verifyBrevoSMTP } from "./config/brevo.ts";
+import { verifyBrevoSMTP } from "./config/brevo";
 import {
   getEmailQueueHealthSnapshot,
   verifyEmailQueueConnection,
-} from "./services/email-queue.service.ts";
-import apiV1Router from "./routes/index.ts";
+} from "./services/email-queue.service";
+import apiV1Router from "./routes/index";
 import {
   errorHandler,
   notFoundHandler,
-} from "./middlewares/error.middleware.ts";
+} from "./middlewares/error.middleware";
 
 const app = express();
 

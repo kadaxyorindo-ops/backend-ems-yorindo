@@ -4,8 +4,8 @@
  */
 
 import { Router } from "express";
-import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
-import { validate } from "../middlewares/validate.middleware.ts";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware";
+import { validate } from "../middlewares/validate.middleware";
 import {
   handleApproveRegistration,
   handleBulkApproveRegistrations,
@@ -14,7 +14,7 @@ import {
   handleGetRegistrations,
   handleRejectAllPending,
   handleRejectRegistration,
-} from "../controllers/registration.controller.ts";
+} from "../controllers/registration.controller";
 import {
   bulkApproveBodySchema,
   bulkRejectBodySchema,
@@ -22,7 +22,7 @@ import {
   getRegistrationsQuerySchema,
   registrationParamsSchema,
   rejectBodySchema,
-} from "../validators/registration.validators.ts";
+} from "../validators/registration.validators";
 
 const router = Router({ mergeParams: true });
 

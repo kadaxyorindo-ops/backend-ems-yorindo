@@ -3,8 +3,8 @@ import { z } from "zod";
 import {
   requireAuth,
   requirePermission,
-} from "../middlewares/auth.middleware.ts";
-import { sendError, sendSuccess } from "../utils/apiResponse.ts";
+} from "../middlewares/auth.middleware";
+import { sendError, sendSuccess } from "../utils/apiResponse";
 import {
   createCommunicationCampaign,
   getCommunicationAudience,
@@ -14,9 +14,9 @@ import {
   previewCommunicationCampaign,
   type CommunicationCampaignHistoryFilters,
   type CommunicationAudienceFilters,
-} from "../services/communication.service.ts";
-import { COMMUNICATION_EMAIL_TEMPLATE_IDS } from "../services/communication-template.service.ts";
-import { generateEmailContent } from "../services/communication-ai.service.ts";
+} from "../services/communication.service";
+import { COMMUNICATION_EMAIL_TEMPLATE_IDS } from "../services/communication-template.service";
+import { generateEmailContent } from "../services/communication-ai.service";
 
 const communicationRouter = Router();
 const communicationTemplateSchema = z.enum(COMMUNICATION_EMAIL_TEMPLATE_IDS);

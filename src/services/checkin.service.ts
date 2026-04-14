@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
-import { Event, Registration } from "../models/index.ts";
-import { verifyRegistrationTicket } from "../utils/jwt.ts";
+import { Event, Registration } from "../models/index";
+import { verifyRegistrationTicket } from "../utils/jwt";
 
 type CheckInOutcome = "checked_in" | "already_checked_in";
 

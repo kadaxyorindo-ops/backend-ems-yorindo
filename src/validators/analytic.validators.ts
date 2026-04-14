@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import { objectIdSchema } from "./event.validators.ts";
+import { objectIdSchema } from "./event.validators";
 
 export const analyticsEventParamsSchema = z.object({
   eventId: objectIdSchema,

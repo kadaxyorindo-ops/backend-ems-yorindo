@@ -4,14 +4,14 @@ import {
   getFormBuilderByIndustry,
   getFormBuilderBySlug,
   upsertFormBuilder,
-} from "../services/formBuilder.service.ts";
-import { sendError, sendSuccess } from "../utils/apiResponse.ts";
+} from "../services/formBuilder.service";
+import { sendError, sendSuccess } from "../utils/apiResponse";
 import type {
   FormBuilderEventParams,
   FormBuilderIndustryParams,
   FormBuilderSlugParams,
   FormBuilderUpsertBody,
-} from "../validators/formBuilder.validators.ts";
+} from "../validators/formBuilder.validators";
 
 export async function getFormBuilderHandler(
   _req: Request,

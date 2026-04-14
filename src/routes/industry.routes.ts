@@ -7,10 +7,10 @@
  */
 
 import { Router } from "express";
-import { requireAuth } from "../middlewares/auth.middleware.ts";
-import { handleGetAllIndustries, handleCreateIndustry } from "../controllers/industry.controller.ts";
-import { validate } from "../middlewares/validate.middleware.ts";
-import { createIndustryBodySchema } from "../validators/industry.validators.ts";
+import { requireAuth } from "../middlewares/auth.middleware";
+import { handleGetAllIndustries, handleCreateIndustry } from "../controllers/industry.controller";
+import { validate } from "../middlewares/validate.middleware";
+import { createIndustryBodySchema } from "../validators/industry.validators";
 
 const router = Router();
 

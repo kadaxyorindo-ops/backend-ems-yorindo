@@ -1,20 +1,20 @@
 import { Router } from "express";
-import { requireAuth, requirePermission } from "../middlewares/auth.middleware.ts";
-import { validate } from "../middlewares/validate.middleware.ts";
+import { requireAuth, requirePermission } from "../middlewares/auth.middleware";
+import { validate } from "../middlewares/validate.middleware";
 import {
   handleGetCheckInStats,
   handleGetRecentCheckIns,
   handleLookupCheckInCandidates,
   handleManualCheckIn,
   handleScanCheckIn,
-} from "../controllers/checkin.controller.ts";
+} from "../controllers/checkin.controller";
 import {
   checkInEventParamsSchema,
   checkInLookupQuerySchema,
   manualCheckInBodySchema,
   recentCheckInsQuerySchema,
   scanCheckInBodySchema,
-} from "../validators/checkin.validators.ts";
+} from "../validators/checkin.validators";
 
 const router = Router({ mergeParams: true });
 

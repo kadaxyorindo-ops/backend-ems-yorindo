@@ -4,6 +4,7 @@ import { validate } from "../middlewares/validate.middleware.ts";
 import { analyticsEventParamsSchema } from "../validators/analytic.validators.ts";
 import {
   handleGetEventSurveyAnalytics,
+  handleGetEventSurveyAnalyticsOverview,
   handleGetEventSurveyInsight,
 } from "../controllers/survey-analytic.controller.ts";
 
@@ -15,6 +16,12 @@ router.get(
   // requirePermission("analytics:view"),
   validate(analyticsEventParamsSchema, "params"),
   handleGetEventSurveyAnalytics,
+);
+
+router.get(
+  "/events/:eventId/overview",
+  validate(analyticsEventParamsSchema, "params"),
+  handleGetEventSurveyAnalyticsOverview,
 );
 
 router.get(

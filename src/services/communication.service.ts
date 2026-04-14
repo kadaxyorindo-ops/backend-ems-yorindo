@@ -2,8 +2,8 @@ import { Types } from "mongoose";
 import {
   CommunicationCampaign,
   Event,
-  Registration,
   Participant,
+  Registration,
 } from "../models/index.ts";
 import { env } from "../config/env.ts";
 import { getYorindoLogoAttachment, sendEmailMessage } from "./email.service.ts";
@@ -16,6 +16,7 @@ import {
 
 type RegistrationStatusFilter =
   | "all"
+  | "all_participants"
   | "pending"
   | "approved"
   | "rejected"
@@ -313,9 +314,14 @@ function sanitizeDraftFilters(
       ? { eventId: input.eventId }
       : {}),
     ...(typeof input.status === "string" &&
-    ["all", "pending", "approved", "rejected", "checked_in"].includes(
-      input.status,
-    )
+    [
+      "all",
+      "all_participants",
+      "pending",
+      "approved",
+      "rejected",
+      "checked_in",
+    ].includes(input.status)
       ? { status: input.status as RegistrationStatusFilter }
       : {}),
     ...(typeof input.participantType === "string" &&
@@ -569,12 +575,37 @@ function matchesAudienceFilters(
     }
   >,
 ) {
+  const isAllParticipantsMode = filters.status === "all_participants";
+
   if (
     filters.status &&
     filters.status !== "all" &&
+    filters.status !== "all_participants" &&
     recipient.status !== filters.status
   ) {
     return false;
+  }
+
+  if (isAllParticipantsMode) {
+    const normalizedSearch = normalizeSearchValue(filters.search);
+
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    const searchableText = [
+      recipient.fullName,
+      recipient.email,
+      recipient.companyName,
+      recipient.industryName,
+      recipient.jobTitleName,
+      recipient.cityName,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(normalizedSearch);
   }
 
   if (
@@ -681,30 +712,177 @@ async function loadRegistrationAudience(eventId?: string) {
   return { recipients, registrationLookups };
 }
 
-async function loadUnregisteredParticipants() {
-  const participants = (await Participant.find()
-    .populate("company", "companyId name")
-    .populate("industry", "refId name")
-    .populate("jobTitle", "refId name")
-    .populate("city", "refId name")
+async function loadUnregisteredParticipants(
+  filters: CommunicationAudienceFilters,
+) {
+  const query: Record<string, unknown> = { isActive: true };
+
+  const companyId = toObjectId(filters.companyId);
+  if (companyId) {
+    query["company.companyId"] = companyId;
+  }
+
+  const industryId = toObjectId(filters.industryId);
+  if (industryId) {
+    query["industry.refId"] = industryId;
+  }
+
+  const jobTitleId = toObjectId(filters.jobTitleId);
+  if (jobTitleId) {
+    query["jobTitle.refId"] = jobTitleId;
+  }
+
+  const cityId = toObjectId(filters.cityId);
+  if (cityId) {
+    query["city.refId"] = cityId;
+  }
+
+  if (filters.sourceChannelCode) {
+    query["sourceChannel.code"] = filters.sourceChannelCode;
+  }
+
+  if (filters.participantType && filters.participantType !== "all") {
+    query.defaultParticipantType = filters.participantType;
+  }
+
+  const normalizedSearch = normalizeSearchValue(filters.search);
+  if (normalizedSearch) {
+    query.$or = [
+      { fullName: { $regex: normalizedSearch, $options: "i" } },
+      { personalEmail: { $regex: normalizedSearch, $options: "i" } },
+      { companyEmail: { $regex: normalizedSearch, $options: "i" } },
+      { "company.name": { $regex: normalizedSearch, $options: "i" } },
+      { "industry.name": { $regex: normalizedSearch, $options: "i" } },
+      { "jobTitle.name": { $regex: normalizedSearch, $options: "i" } },
+      { "city.name": { $regex: normalizedSearch, $options: "i" } },
+    ];
+  }
+
+  const participants = (await Participant.find(query)
+    .select(
+      "fullName personalEmail companyEmail sourceChannel company industry jobTitle city defaultParticipantType",
+    )
     .sort({ fullName: 1 })
-    .lean()) as any[];
+    .lean()) as Array<{
+    _id: Types.ObjectId;
+    fullName: string;
+    personalEmail?: string | null;
+    companyEmail?: string | null;
+    defaultParticipantType?: string;
+    sourceChannel?: { code?: string | null } | null;
+    company?: { companyId?: Types.ObjectId | null; name?: string | null };
+    industry?: { refId?: Types.ObjectId | null; name?: string | null };
+    jobTitle?: { refId?: Types.ObjectId | null; name?: string | null };
+    city?: { refId?: Types.ObjectId | null; name?: string | null };
+  }>;
 
-  const recipients = participants
-    .map((participant) => {
-      const email = pickRecipientEmail(participant);
-      if (!email) return null;
+  const recipientsByParticipant = new Map<
+    string,
+    CommunicationAudienceRecipient
+  >();
+  const participantLookupsByParticipant = new Map<
+    string,
+    {
+      companyId: string | null;
+      industryId: string | null;
+      jobTitleId: string | null;
+      cityId: string | null;
+    }
+  >();
 
-      return {
-        registrationId: participant._id.toString(),
-        participantId: participant._id.toString(),
+  for (const participant of participants) {
+    const email = pickRecipientEmail(participant);
+
+    if (!email) {
+      continue;
+    }
+
+    const participantId = participant._id.toString();
+
+    if (!recipientsByParticipant.has(participantId)) {
+      recipientsByParticipant.set(participantId, {
+        registrationId: participantId,
+        participantId,
         eventId: "",
-        eventTitle: "",
+        eventTitle: "All Events",
         eventDate: "",
         fullName: participant.fullName,
         email,
-        participantType: "participant",
-        status: "unregistered",
+        participantType: participant.defaultParticipantType ?? "participant",
+        status: "all_participants",
+        companyName: participant.company?.name ?? null,
+        industryName: participant.industry?.name ?? null,
+        jobTitleName: participant.jobTitle?.name ?? null,
+        cityName: participant.city?.name ?? null,
+        sourceChannelCode: participant.sourceChannel?.code ?? null,
+      });
+    }
+
+    if (!participantLookupsByParticipant.has(participantId)) {
+      participantLookupsByParticipant.set(participantId, {
+        companyId: participant.company?.companyId?.toString() ?? null,
+        industryId: participant.industry?.refId?.toString() ?? null,
+        jobTitleId: participant.jobTitle?.refId?.toString() ?? null,
+        cityId: participant.city?.refId?.toString() ?? null,
+      });
+    }
+  }
+
+  return {
+    recipients: Array.from(recipientsByParticipant.values()),
+    participantLookups: Object.fromEntries(participantLookupsByParticipant),
+  };
+}
+
+async function getCampaignRecipientsByParticipantIds(participantIds: string[]) {
+  const validParticipantIds = participantIds
+    .filter((value) => Types.ObjectId.isValid(value))
+    .map((value) => new Types.ObjectId(value));
+
+  if (validParticipantIds.length === 0) {
+    return [];
+  }
+
+  const participants = (await Participant.find({
+    _id: { $in: validParticipantIds },
+    isActive: true,
+  })
+    .select(
+      "fullName personalEmail companyEmail sourceChannel company industry jobTitle city defaultParticipantType",
+    )
+    .lean()) as Array<{
+    _id: Types.ObjectId;
+    fullName: string;
+    personalEmail?: string | null;
+    companyEmail?: string | null;
+    defaultParticipantType?: string;
+    sourceChannel?: { code?: string | null } | null;
+    company?: { name?: string | null };
+    industry?: { name?: string | null };
+    jobTitle?: { name?: string | null };
+    city?: { name?: string | null };
+  }>;
+
+  return participants
+    .map((participant) => {
+      const email = pickRecipientEmail(participant);
+
+      if (!email) {
+        return null;
+      }
+
+      const participantId = participant._id.toString();
+
+      return {
+        registrationId: participantId,
+        participantId,
+        eventId: "",
+        eventTitle: "All Events",
+        eventDate: "",
+        fullName: participant.fullName,
+        email,
+        participantType: participant.defaultParticipantType ?? "participant",
+        status: "all_participants",
         companyName: participant.company?.name ?? null,
         industryName: participant.industry?.name ?? null,
         jobTitleName: participant.jobTitle?.name ?? null,
@@ -713,28 +891,6 @@ async function loadUnregisteredParticipants() {
       };
     })
     .filter((item): item is CommunicationAudienceRecipient => Boolean(item));
-
-  const participantLookups: Record<
-    string,
-    {
-      companyId: string | null;
-      industryId: string | null;
-      jobTitleId: string | null;
-      cityId: string | null;
-    }
-  > = Object.fromEntries(
-    participants.map((participant) => [
-      participant._id.toString(),
-      {
-        companyId: participant.company?.companyId?.toString() ?? null,
-        industryId: participant.industry?.refId?.toString() ?? null,
-        jobTitleId: participant.jobTitle?.refId?.toString() ?? null,
-        cityId: participant.city?.refId?.toString() ?? null,
-      },
-    ]),
-  );
-
-  return { recipients, participantLookups };
 }
 
 async function getCampaignRecipients(registrationIds: string[]) {
@@ -765,7 +921,9 @@ async function loadEventSummary(eventId?: string | null) {
     return null;
   }
 
-  const event = await Event.findById(objectId).select("title eventDate").lean();
+  const event = await Event.findById(objectId)
+    .select("title eventDate location industry")
+    .lean();
 
   if (!event) {
     return null;
@@ -775,6 +933,8 @@ async function loadEventSummary(eventId?: string | null) {
     id: event._id.toString(),
     title: event.title,
     eventDate: event.eventDate.toISOString(),
+    location: event.location ?? null,
+    industry: event.industry?.name ?? null,
   };
 }
 
@@ -793,9 +953,25 @@ export async function getCommunicationAudience(
     status: event.status,
   }));
 
-  // If eventId is provided, use registered participants for that event
-  // If eventId is NOT provided, use all participants from the database
-  let allRecipients: CommunicationAudienceRecipient[] = [];
+  const isAllParticipantsMode = filters.status === "all_participants";
+
+  const eventAudience = filters.eventId
+    ? await loadRegistrationAudience(filters.eventId)
+    : {
+        recipients: [] as CommunicationAudienceRecipient[],
+        registrationLookups: {} as Record<
+          string,
+          {
+            companyId: string | null;
+            industryId: string | null;
+            jobTitleId: string | null;
+            cityId: string | null;
+          }
+        >,
+      };
+
+  let allRecipients: CommunicationAudienceRecipient[] =
+    eventAudience.recipients;
   let lookups: Record<
     string,
     {
@@ -804,18 +980,11 @@ export async function getCommunicationAudience(
       jobTitleId: string | null;
       cityId: string | null;
     }
-  > = {};
+  > = eventAudience.registrationLookups;
 
-  if (filters.eventId) {
-    // Show registered participants for specific event
-    const { recipients: eventRecipients, registrationLookups } =
-      await loadRegistrationAudience(filters.eventId);
-    allRecipients = eventRecipients;
-    lookups = registrationLookups;
-  } else {
-    // Show all participants (unregistered)
+  if (isAllParticipantsMode) {
     const { recipients: participantRecipients, participantLookups } =
-      await loadUnregisteredParticipants();
+      await loadUnregisteredParticipants(filters);
     allRecipients = participantRecipients;
     lookups = participantLookups;
   }
@@ -824,19 +993,16 @@ export async function getCommunicationAudience(
     .filter((recipient) => matchesAudienceFilters(recipient, filters, lookups))
     .toSorted((left, right) => left.fullName.localeCompare(right.fullName));
 
-  // Base recipients for building filter options
-  const baseRecipients = filters.eventId
-    ? allRecipients.filter((recipient) => recipient.eventId === filters.eventId)
-    : allRecipients;
+  const baseRecipients = filteredRecipients;
 
-  const summaryRecipients = baseRecipients.filter((recipient) =>
+  const eventSummaryRecipients = eventAudience.recipients.filter((recipient) =>
     matchesAudienceFilters(
       recipient,
       {
         ...filters,
         status: "all",
       },
-      lookups,
+      eventAudience.registrationLookups,
     ),
   );
 
@@ -896,6 +1062,15 @@ export async function getCommunicationAudience(
     ),
   ).toSorted();
 
+  const allParticipantsCount = isAllParticipantsMode
+    ? filteredRecipients.length
+    : (
+        await loadUnregisteredParticipants({
+          ...filters,
+          status: "all_participants",
+        })
+      ).recipients.length;
+
   return {
     events: eventOptions,
     recipients: filteredRecipients,
@@ -908,7 +1083,10 @@ export async function getCommunicationAudience(
     },
     summary: {
       totalRecipients: filteredRecipients.length,
-      statusCounts: buildStatusCounts(summaryRecipients),
+      statusCounts: {
+        ...buildStatusCounts(eventSummaryRecipients),
+        all_participants: allParticipantsCount,
+      },
     },
   };
 }
@@ -916,21 +1094,32 @@ export async function getCommunicationAudience(
 export async function previewCommunicationCampaign(
   input: PreviewCommunicationCampaignInput,
 ): Promise<CommunicationCampaignPreview> {
-  const sampleRecipient = input.sampleRegistrationId
+  let sampleRecipient = input.sampleRegistrationId
     ? ((await getCampaignRecipients([input.sampleRegistrationId]))[0] ?? null)
     : null;
+
+  if (!sampleRecipient && input.sampleRegistrationId) {
+    sampleRecipient =
+      (
+        await getCampaignRecipientsByParticipantIds([
+          input.sampleRegistrationId,
+        ])
+      )[0] ?? null;
+  }
 
   const fallbackEvent = await loadEventSummary(input.eventId);
   const templateId = resolveTemplateId(input.templateId);
   const rendered = renderCommunicationEmail({
     templateId,
-    subject: input.subject.trim() || "Tanpa subject",
+    subject: input.subject.trim() || "No subject",
     bodyHtml: input.bodyHtml,
     bodyText: input.bodyText ?? stripHtml(input.bodyHtml),
     recipientName: sampleRecipient?.fullName ?? "Participant Preview",
     recipientEmail: sampleRecipient?.email ?? "participant@example.com",
     eventTitle: sampleRecipient?.eventTitle ?? fallbackEvent?.title ?? null,
     eventDate: sampleRecipient?.eventDate ?? fallbackEvent?.eventDate ?? null,
+    eventLocation: fallbackEvent?.location ?? null,
+    eventIndustry: fallbackEvent?.industry ?? null,
     ...(input.previewText !== undefined
       ? { previewText: input.previewText }
       : {}),
@@ -963,7 +1152,7 @@ export async function listCommunicationDrafts(createdByUserId: string) {
   const createdBy = toObjectId(createdByUserId);
 
   if (!createdBy) {
-    throw new Error("Pengguna draft tidak valid.");
+    throw new Error("Invalid draft owner.");
   }
 
   const drafts = (await CommunicationCampaign.find({
@@ -986,7 +1175,7 @@ export async function getCommunicationDraftDetail(
   const draftObjectId = toObjectId(draftId);
 
   if (!createdBy || !draftObjectId) {
-    throw new Error("Draft yang diminta tidak valid.");
+    throw new Error("The requested draft is invalid.");
   }
 
   const draft = (await CommunicationCampaign.findOne({
@@ -998,7 +1187,7 @@ export async function getCommunicationDraftDetail(
     .lean()) as unknown as PopulatedCommunicationCampaign | null;
 
   if (!draft) {
-    throw new Error("Draft tidak ditemukan atau sudah tidak aktif.");
+    throw new Error("Draft not found or no longer active.");
   }
 
   return serializeCommunicationDraft(draft);
@@ -1068,15 +1257,23 @@ export async function createCommunicationCampaign(
   const createdBy = toObjectId(input.createdByUserId);
 
   if (!createdBy) {
-    throw new Error("Pengguna pengirim tidak valid.");
+    throw new Error("Invalid sender user.");
   }
 
-  const recipients = await getCampaignRecipients(
-    input.recipientRegistrationIds,
-  );
+  const useAllParticipantsMode = input.filters?.status === "all_participants";
+
+  if (input.mode === "send" && !toObjectId(input.eventId)) {
+    throw new Error("Please select an event before sending a broadcast.");
+  }
+
+  const recipients = useAllParticipantsMode
+    ? await getCampaignRecipientsByParticipantIds(
+        input.recipientRegistrationIds,
+      )
+    : await getCampaignRecipients(input.recipientRegistrationIds);
 
   if (input.mode === "send" && recipients.length === 0) {
-    throw new Error("Pilih minimal satu penerima email untuk dikirim.");
+    throw new Error("Please select at least one recipient email.");
   }
 
   const bodyHtml = input.bodyHtml.trim();
@@ -1086,11 +1283,11 @@ export async function createCommunicationCampaign(
   const previewText = input.previewText?.trim() || null;
 
   if (input.mode === "send" && !subject) {
-    throw new Error("Subject email wajib diisi sebelum broadcast.");
+    throw new Error("Email subject is required before sending.");
   }
 
   if (input.mode === "send" && !bodyText) {
-    throw new Error("Isi email masih kosong.");
+    throw new Error("Email content cannot be empty.");
   }
 
   const initialStatus: CampaignStatus =
@@ -1105,7 +1302,7 @@ export async function createCommunicationCampaign(
     }));
 
   if (input.draftId && !existingDraft) {
-    throw new Error("Draft tidak ditemukan atau sudah tidak aktif.");
+    throw new Error("Draft not found or no longer active.");
   }
 
   const campaignPayload = {
@@ -1144,7 +1341,7 @@ export async function createCommunicationCampaign(
     : await CommunicationCampaign.create(campaignPayload);
 
   if (!campaign) {
-    throw new Error("Campaign email gagal disimpan.");
+    throw new Error("Failed to save email campaign.");
   }
 
   if (input.mode === "send") {
@@ -1172,10 +1369,12 @@ export async function createCommunicationCampaign(
 
       throw new Error(
         error instanceof Error
-          ? `RabbitMQ gagal menerima campaign: ${error.message}${
-              existingDraft ? " Draft tetap tersimpan untuk dicoba lagi." : ""
+          ? `RabbitMQ failed to accept the campaign: ${error.message}${
+              existingDraft
+                ? " The draft is still saved and can be retried."
+                : ""
             }`
-          : "RabbitMQ gagal menerima campaign.",
+          : "RabbitMQ failed to accept the campaign.",
       );
     }
   }
@@ -1188,9 +1387,9 @@ export async function createCommunicationCampaign(
     message:
       input.mode === "draft"
         ? existingDraft
-          ? "Draft email berhasil diperbarui."
-          : "Draft email berhasil disimpan."
-        : "Broadcast email berhasil masuk ke antrian RabbitMQ. Delivery diproses di background.",
+          ? "Draft email updated successfully."
+          : "Draft email saved successfully."
+        : "Broadcast email is queued in RabbitMQ. Delivery is processing in the background.",
   };
 }
 
@@ -1253,7 +1452,9 @@ export async function processQueuedCommunicationCampaign(campaignId: string) {
   }
 
   const event = campaign.eventId
-    ? await Event.findById(campaign.eventId).select("title eventDate").lean()
+    ? await Event.findById(campaign.eventId)
+        .select("title eventDate location industry")
+        .lean()
     : null;
 
   const delivery = getEmptyDelivery();
@@ -1270,6 +1471,8 @@ export async function processQueuedCommunicationCampaign(campaignId: string) {
         recipientEmail: recipient.email,
         eventTitle: event?.title ?? null,
         eventDate: event?.eventDate ?? null,
+        eventLocation: event?.location ?? null,
+        eventIndustry: event?.industry?.name ?? null,
       });
 
       await sendEmailMessage({

@@ -1,6 +1,10 @@
 import type { Request, Response } from 'express';
 import FeedbackResponse from '../models/FeedbackResponse';
-import { analyzeFeedbackSentiment } from '../services/feedback.service';
+import OpenAI from "openai";
+import type { NextFunction } from "express";
+import { sendError, sendSuccess } from "../utils/apiResponse.ts";
+import type { AnalyticsEventParams } from "../validators/analytic.validators.ts";
+import { getEventFeedbackAnalytics } from "../services/feedback-analytic.service.ts";
 
 /**
  * Controller: Handles post-event feedback submission
@@ -56,5 +60,25 @@ export async function handleSubmitFeedback(req: Request, res: Response): Promise
       message: "Internal Server Error: Could not process feedback.",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+}
+
+export async function handleGetEventFeedbackAnalytics(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { eventId } = res.locals.parsed.params as AnalyticsEventParams;
+    const result = await getEventFeedbackAnalytics(eventId);
+
+    if (!result) {
+      sendError(res, 404, "Event tidak ditemukan");
+      return;
+    }
+
+    sendSuccess(res, 200, "Feedback analytics berhasil dimuat", result);
+  } catch (error) {
+    next(error);
   }
 }

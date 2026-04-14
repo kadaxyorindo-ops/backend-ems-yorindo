@@ -9,10 +9,10 @@ import Industry from "../models/Industry.ts";
 import JobTitle from "../models/JobTitle.ts";
 import Participant from "../models/Participant.ts";
 import Registration from "../models/Registration.ts";
-import SurveyResponse from "../models/SurveyResponse.ts";
-import { Event } from "../models/index.ts";
+import { Event, SurveyResponse } from "../models/index.ts";
 import type { IRegistrationField } from "../models/schemas/sub/registration-field.schema.ts";
 import type { VisitorRegistrationBody } from "../validators/visitor.validators.ts";
+import type { SurveyQuestionType } from "../models/constants/enums.ts";
 
 interface CustomAnswerInput {
   fieldId?: string | undefined;
@@ -23,61 +23,96 @@ interface CustomAnswerInput {
 
 type CustomAnswerPayload = Array<CustomAnswerInput> | Record<string, unknown>;
 
+const FIXED_FIELD_BODY_KEY_MAP: Record<string, string> = {
+  full_name: "nama_lengkap",
+  personal_email: "email_pribadi",
+  company_email: "email_perusahaan",
+  phone: "no_hp",
+  company_name: "nama_company",
+  company_location: "lokasi_perusahaan",
+  industry: "jenis_industri",
+  job_title: "jabatan",
+};
+
 function normalizeKey(value: string): string {
   return value.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
-function buildFieldLookup(fields: IRegistrationField[]) {
-  const byFieldId = new Set<string>();
-  const byLabel = new Map<string, string>();
-  const byKey = new Map<string, string>();
+function inferAnswerType(field: IRegistrationField | null, value: unknown): SurveyQuestionType {
+  if (field) {
+    if (field.type === "textarea") return "textarea";
+    if (field.type === "select") return "select";
+    if (field.type === "radio") return "radio";
+    if (field.type === "checkbox") return "checkbox";
+  }
+
+  if (Array.isArray(value)) return "checkbox";
+  return "text";
+}
+
+function buildFieldMetaLookup(fields: IRegistrationField[]) {
+  const byFieldId = new Map<string, IRegistrationField>();
+  const byLabel = new Map<string, IRegistrationField>();
+  const byKey = new Map<string, IRegistrationField>();
 
   for (const field of fields) {
-    if (field.fieldId) {
-      byFieldId.add(field.fieldId);
-    }
-    if (field.label) {
-      byLabel.set(normalizeKey(field.label), field.fieldId);
-    }
-    if (field.key) {
-      byKey.set(normalizeKey(field.key), field.fieldId);
-    }
+    byFieldId.set(field.fieldId, field);
+    byLabel.set(normalizeKey(field.label), field);
+    byKey.set(normalizeKey(field.key), field);
   }
 
   return { byFieldId, byLabel, byKey };
 }
 
-function resolveFieldId(
+function resolveField(
   rawKey: string,
-  lookup: ReturnType<typeof buildFieldLookup>,
-): string | null {
-  if (lookup.byFieldId.has(rawKey)) return rawKey;
-  const normalized = normalizeKey(rawKey);
-  return lookup.byLabel.get(normalized) ?? lookup.byKey.get(normalized) ?? null;
+  lookup: ReturnType<typeof buildFieldMetaLookup>,
+): IRegistrationField | null {
+  return (
+    lookup.byFieldId.get(rawKey) ??
+    lookup.byLabel.get(normalizeKey(rawKey)) ??
+    lookup.byKey.get(normalizeKey(rawKey)) ??
+    null
+  );
 }
 
 function buildCustomAnswers(
   input: CustomAnswerPayload | null | undefined,
   fields: IRegistrationField[],
-): Record<string, unknown> {
-  if (!input) return {};
+): Array<{
+  questionId: string;
+  label: string;
+  type: SurveyQuestionType;
+  value: unknown;
+}> {
+  if (!input) return [];
 
-  const lookup = buildFieldLookup(fields);
-  const answers: Record<string, unknown> = {};
+  const lookup = buildFieldMetaLookup(fields);
+  const answers: Array<{
+    questionId: string;
+    label: string;
+    type: SurveyQuestionType;
+    value: unknown;
+  }> = [];
 
   const assignAnswer = (rawKey: string, value: unknown): void => {
-    const resolved = resolveFieldId(rawKey, lookup);
-    if (resolved) {
-      answers[resolved] = value;
-      return;
-    }
-    answers[rawKey] = value;
+    const field = resolveField(rawKey, lookup);
+    const questionId = field?.fieldId ?? rawKey;
+    const label = field?.label ?? rawKey;
+    const type = inferAnswerType(field, value);
+
+    answers.push({
+      questionId,
+      label,
+      type,
+      value,
+    });
   };
 
   if (Array.isArray(input)) {
     for (const item of input) {
       if (item.fieldId) {
-        answers[item.fieldId] = item.value;
+        assignAnswer(item.fieldId, item.value);
         continue;
       }
       if (item.label) {
@@ -93,6 +128,76 @@ function buildCustomAnswers(
   }
 
   return answers;
+}
+
+function isFilledValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.some((item) => isFilledValue(item));
+  return true;
+}
+
+function buildRegistrationSnapshot(fields: IRegistrationField[] = []) {
+  return fields.map((field) => ({
+    fieldId: field.fieldId,
+    key: field.key,
+    label: field.label,
+    type: field.type,
+    order: field.order,
+    isFixed: field.isFixed,
+    ...(field.options ? { options: field.options } : {}),
+  }));
+}
+
+function buildRegistrationAnswers(params: {
+  fields: IRegistrationField[];
+  bodyValues: Record<string, unknown>;
+  customAnswers: Array<{
+    questionId: string;
+    label: string;
+    type: SurveyQuestionType;
+    value: unknown;
+  }>;
+}) {
+  const customAnswerByFieldId = new Map(
+    params.customAnswers.map((answer) => [answer.questionId, answer]),
+  );
+
+  return params.fields.flatMap((field) => {
+    if (field.isFixed) {
+      const bodyKey = FIXED_FIELD_BODY_KEY_MAP[field.key];
+      const value = bodyKey ? params.bodyValues[bodyKey] : undefined;
+
+      if (!isFilledValue(value)) {
+        return [];
+      }
+
+      return [
+        {
+          fieldId: field.fieldId,
+          key: field.key,
+          label: field.label,
+          type: field.type,
+          value,
+        },
+      ];
+    }
+
+    const customAnswer = customAnswerByFieldId.get(field.fieldId);
+    if (!customAnswer || !isFilledValue(customAnswer.value)) {
+      return [];
+    }
+
+    return [
+      {
+        fieldId: field.fieldId,
+        key: field.key,
+        label: field.label,
+        type: field.type,
+        value: customAnswer.value,
+      },
+    ];
+  });
 }
 
 export async function submitVisitorRegistration(
@@ -181,24 +286,45 @@ export async function submitVisitorRegistration(
     survei_result,
     fields as IRegistrationField[],
   );
+  const registrationAnswers = buildRegistrationAnswers({
+    fields: fields as IRegistrationField[],
+    bodyValues: body as Record<string, unknown>,
+    customAnswers: answers,
+  });
 
-  if (Object.keys(answers).length > 0) {
-    const existingSurvey = await SurveyResponse.findOne({
-      eventId: event_id,
-      participantId: participant._id,
-    });
+  await Registration.findByIdAndUpdate(registration._id, {
+    $set: {
+      formSnapshot: {
+        version: event.registrationForm?.version ?? 1,
+        fields: buildRegistrationSnapshot(fields as IRegistrationField[]),
+      },
+      answers: registrationAnswers,
+    },
+  });
 
-    if (!existingSurvey) {
-      const survey = new SurveyResponse({
+  if (answers.length > 0) {
+    await SurveyResponse.findOneAndUpdate(
+      {
         eventId: event_id,
-        surveyId: event.surveyId || null,
         participantId: participant._id,
-        registrationId: registration._id,
-        answers,
-      });
-
-      await survey.save();
-    }
+      },
+      {
+        $set: {
+          surveyId: event.surveyId || null,
+          registrationId: registration._id,
+          answers,
+          submittedAt: new Date(),
+        },
+        $setOnInsert: {
+          eventId: event_id,
+          participantId: participant._id,
+        },
+      },
+      {
+        upsert: true,
+        new: true,
+      },
+    );
   }
 
   return {

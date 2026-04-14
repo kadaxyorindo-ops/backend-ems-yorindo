@@ -3,8 +3,9 @@
  * @description AI-generated insights for event survey responses.
  */
 
-import { Event, SurveyResponse } from "../models/index.ts";
+import { Event } from "../models/index.ts";
 import { chat } from "../utils/llmClient.ts";
+import { getEventSurveyAnswerSources } from "./survey-analytic.service.ts";
 
 export class SurveyInsightUnavailableError extends Error {
   statusCode = 400;
@@ -77,22 +78,21 @@ function safeParse(content: string): SurveyAnalyticsInsight {
 export async function getEventSurveyInsight(
   eventId: string,
 ): Promise<EventSurveyInsightResult | null> {
-  const event = await Event.findById(eventId).select("title").lean();
+  const event = await Event.findById(eventId)
+    .select("title registrationForm.fields")
+    .lean();
   if (!event) {
     return null;
   }
 
-  const rawResponses = await SurveyResponse.find({ eventId })
-    .select("answers")
-    .lean();
+  const sourceResult = await getEventSurveyAnswerSources(eventId);
 
-  if (rawResponses.length === 0) {
+  if (!sourceResult || sourceResult.sources.length === 0) {
     throw new SurveyInsightUnavailableError(
       "Belum ada data survey untuk dianalisis oleh AI.",
     );
   }
-
-  const cleanDataForAI = rawResponses.map((response) => response.answers);
+  const cleanDataForAI = sourceResult.sources.map((source) => source.answers);
 
   const insight = await chat([
     {
@@ -111,6 +111,6 @@ export async function getEventSurveyInsight(
   return {
     eventId,
     insight: parsedInsight,
-    totalResponses: rawResponses.length,
+    totalResponses: sourceResult.sources.length,
   };
 }

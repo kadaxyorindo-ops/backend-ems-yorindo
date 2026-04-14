@@ -25,6 +25,7 @@ import {
   handleGetEventSurveyAnalyticsOverview,
   handleGetEventSurveyInsight,
 } from "../controllers/survey-analytic.controller.ts";
+import { handleGetEventFeedbackAnalytics } from "../controllers/FeedbackController.ts";
 
 const router = Router();
 
@@ -103,6 +104,13 @@ router.get(
   "/events/:eventId/survey/insights",
   validate(analyticsEventParamsSchema, "params"),
   handleGetEventSurveyInsight,
+);
+
+router.get(
+  // Feedback: analytics
+  "/events/:eventId/feedback",
+  validate(analyticsEventParamsSchema, "params"),
+  handleGetEventFeedbackAnalytics,
 );
 
 export default router;

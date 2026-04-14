@@ -4,6 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import mongoose from "mongoose";
 import { verifyBrevoSMTP } from "./config/brevo.ts";
+import { env } from "./config/env.ts";
 import {
   getEmailQueueHealthSnapshot,
   verifyEmailQueueConnection,
@@ -15,12 +16,27 @@ import {
 } from "./middlewares/error.middleware.ts";
 
 const app = express();
+const normalizeOrigin = (value: string) =>
+  value.trim().replace(/\/$/, "").toLowerCase();
+const allowedOrigins = new Set(env.corsOrigins.map(normalizeOrigin));
 
 app.set("trust proxy", 1);
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.size === 0) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedOrigins.has(normalizeOrigin(origin))) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, false);
+    },
     credentials: true,
   }),
 );

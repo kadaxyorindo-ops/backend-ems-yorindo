@@ -18,7 +18,7 @@ export class FormBuilderValidationError extends Error {
 }
 
 const DEFAULT_FIXED_FIELDS: FormBuilderFieldInput[] = [
-  { key: "full_name", label: "Nama Lengkap", type: "text", required: true },
+  { key: "full_name", label: "Full Name", type: "text", required: true },
   {
     key: "company_name",
     label: "Company Name",
@@ -45,7 +45,7 @@ const DEFAULT_FIXED_FIELDS: FormBuilderFieldInput[] = [
     type: "email",
     required: true,
   },
-  { key: "phone", label: "Nomor Handphone", type: "phone", required: true },
+  { key: "phone", label: "Phone", type: "phone", required: true },
 ];
 
 const TYPE_ALIASES: Record<string, FieldType> = {

@@ -18,24 +18,34 @@ export class FormBuilderValidationError extends Error {
 }
 
 const DEFAULT_FIXED_FIELDS: FormBuilderFieldInput[] = [
-  { key: "full_name", label: "Nama Lengkap", type: "text", required: true },
+  { key: "full_name", label: "Full Name", type: "text", required: true },
   {
     key: "company_name",
-    label: "Nama Perusahaan",
+    label: "Company Name",
     type: "text",
     required: true,
   },
   {
     key: "company_location",
-    label: "Lokasi Perusahaan",
+    label: "Company Location",
     type: "text",
     required: true,
   },
-  { key: "industry", label: "Jenis Industri", type: "select", required: true },
-  { key: "job_title", label: "Jabatan", type: "text", required: true },
-  { key: "company_email", label: "Email Perusahaan", type: "email", required: true },
-  { key: "personal_email", label: "Email Pribadi", type: "email", required: true },
-  { key: "phone", label: "Nomor Handphone", type: "phone", required: true },
+  { key: "industry", label: "Industry", type: "select", required: true },
+  { key: "job_title", label: "Job Title", type: "text", required: true },
+  {
+    key: "company_email",
+    label: "Company Email",
+    type: "email",
+    required: true,
+  },
+  {
+    key: "personal_email",
+    label: "Personal Email",
+    type: "email",
+    required: true,
+  },
+  { key: "phone", label: "Phone", type: "phone", required: true },
 ];
 
 const TYPE_ALIASES: Record<string, FieldType> = {
@@ -107,7 +117,9 @@ function buildField(
     type: type as FieldType,
     order,
     isFixed,
-    ...(input.placeholder === undefined ? {} : { placeholder: input.placeholder }),
+    ...(input.placeholder === undefined
+      ? {}
+      : { placeholder: input.placeholder }),
     ...(input.helpText === undefined ? {} : { helpText: input.helpText }),
     ...(options === undefined ? {} : { options }),
     validation: {
@@ -166,9 +178,7 @@ async function buildFixedFields(): Promise<FormBuilderFieldInput[]> {
   const industryOptions = await fetchIndustryOptionValues(true);
 
   return DEFAULT_FIXED_FIELDS.map((field) =>
-    field.key === "industry"
-      ? { ...field, options: industryOptions }
-      : field,
+    field.key === "industry" ? { ...field, options: industryOptions } : field,
   );
 }
 
@@ -233,9 +243,7 @@ export async function upsertFormBuilder(
     version: event.registrationForm.version,
     publishedAt: event.registrationForm.publishedAt,
     fixedFields: mapFieldsForView(fields.filter((field) => field.isFixed)),
-    customQuestions: mapFieldsForView(
-      fields.filter((field) => !field.isFixed),
-    ),
+    customQuestions: mapFieldsForView(fields.filter((field) => !field.isFixed)),
   };
 }
 
@@ -261,9 +269,7 @@ export async function getFormBuilderByEvent(
     version: event.registrationForm?.version ?? 1,
     publishedAt: event.registrationForm?.publishedAt ?? null,
     fixedFields: mapFieldsForView(fields.filter((field) => field.isFixed)),
-    customQuestions: mapFieldsForView(
-      fields.filter((field) => !field.isFixed),
-    ),
+    customQuestions: mapFieldsForView(fields.filter((field) => !field.isFixed)),
   };
 }
 
@@ -294,9 +300,7 @@ export async function getFormBuilderBySlug(
     version: event.registrationForm?.version ?? 1,
     publishedAt: event.registrationForm?.publishedAt ?? null,
     fixedFields: mapFieldsForView(fields.filter((field) => field.isFixed)),
-    customQuestions: mapFieldsForView(
-      fields.filter((field) => !field.isFixed),
-    ),
+    customQuestions: mapFieldsForView(fields.filter((field) => !field.isFixed)),
   };
 }
 
@@ -319,9 +323,7 @@ export async function getFormBuilderByIndustry(
 
   const event =
     publishedEvent ??
-    (await Event.findOne(baseMatch)
-      .sort({ updatedAt: -1 })
-      .lean());
+    (await Event.findOne(baseMatch).sort({ updatedAt: -1 }).lean());
 
   if (!event) return null;
 

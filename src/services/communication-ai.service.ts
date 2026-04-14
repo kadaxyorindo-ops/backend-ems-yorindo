@@ -80,9 +80,7 @@ function buildAudienceContext(stats: {
   if (stats.topJobTitles.length > 0) {
     parts.push(`Recipient job titles: ${stats.topJobTitles.join(", ")}`);
   }
-  return parts.length > 0
-    ? `\nAudience Profile:\n${parts.join("\n")}`
-    : "";
+  return parts.length > 0 ? `\nAudience Profile:\n${parts.join("\n")}` : "";
 }
 
 const SYSTEM_PROMPT =
@@ -116,11 +114,9 @@ function buildPrompt(
       : "";
 
   const toneGuide = input.templateId
-    ? TEMPLATE_TONE_MAP[input.templateId] ?? ""
+    ? (TEMPLATE_TONE_MAP[input.templateId] ?? "")
     : "";
-  const toneSection = toneGuide
-    ? `\nTone & Style: ${toneGuide}`
-    : "";
+  const toneSection = toneGuide ? `\nTone & Style: ${toneGuide}` : "";
 
   const customSection = input.customPrompt?.trim()
     ? `\nAdditional instructions from admin:\n"${input.customPrompt.trim()}"\nEnsure the generated result follows the above instructions as closely as possible.`
@@ -149,21 +145,21 @@ function buildPrompt(
     `- Mention interesting details: date, location, or benefits\n\n` +
     `Rules for "bodyHtml":\n` +
     `- Simple HTML format (only <p>, <strong>, <em>, <ul>, <li>)\n` +
-    `- REQUIRED placeholders in body (will be replaced with actual data when sent):\n` +
-    `  {{recipientName}}  → recipient's full name\n` +
-    `  {{eventTitle}}     → event title\n` +
-    `  {{eventDate}}      → event date\n` +
-    `  {{eventLocation}}  → event venue/location\n` +
-    `  {{eventIndustry}}  → target industry of the event\n` +
-    `- Body structure:\n` +
-    `  1. Greeting: "Dear {{recipientName}}," or "Hello {{recipientName}},"\n` +
-    `  2. Introduction: value/benefits of the event for the recipient\n` +
-    `  3. Details: use placeholders {{eventTitle}}, {{eventDate}}, {{eventLocation}}\n` +
-    `  4. Clear call-to-action\n` +
-    `  5. Closing on behalf of Yorindo Communication\n` +
-    `- 3-5 paragraphs, not too long\n\n` +
+    `- Allowed placeholders in body (replaced per recipient at send time):\n` +
+    `  {{recipientName}}   → recipient's full name\n` +
+    `  {{recipientEmail}}  → recipient's email address\n` +
+    `- Write event details (title, date, location, industry) as real text — ` +
+    `  you already have the actual event data above. Do NOT use tokens for event fields.\n` +
+    `- Body structure (follow exactly, each point must be a separate <p> tag):\n` +
+    `  1. Greeting: <p>Dear {{recipientName}},</p>\n` +
+    `  2. Opening: 1-2 sentences on why this event matters to the recipient\n` +
+    `  3. Details: 2-3 sentences covering the event — wrap the event name in <strong>, the date in <strong>, and the location in <strong>\n` +
+    `  4. Call-to-action: 1-2 sentences with a clear next step\n` +
+    `  5. Closing — MUST be its own <p> tag, exactly: <p>Best regards,<br>Yorindo Communication</p>\n` +
+    `- Keep it concise: 4-5 short paragraphs total\n\n` +
     `IMPORTANT: subject and previewText MUST NOT use placeholders — write the final text directly.\n` +
-    `bodyHtml MUST use placeholders for dynamic data.`
+    `bodyHtml may only use {{recipientName}} or {{recipientEmail}} as dynamic tokens. ` +
+    `All event details must be written as real text, not as placeholder tokens.`
   );
 }
 
@@ -175,9 +171,12 @@ function safeParse(content: string): GenerateEmailContentResult | null {
       .replace(/\s*```$/i, "")
       .trim();
     const parsed = JSON.parse(cleaned) as Record<string, unknown>;
-    const subject = typeof parsed.subject === "string" ? parsed.subject.trim() : "";
-    const previewText = typeof parsed.previewText === "string" ? parsed.previewText.trim() : "";
-    const bodyHtml = typeof parsed.bodyHtml === "string" ? parsed.bodyHtml.trim() : "";
+    const subject =
+      typeof parsed.subject === "string" ? parsed.subject.trim() : "";
+    const previewText =
+      typeof parsed.previewText === "string" ? parsed.previewText.trim() : "";
+    const bodyHtml =
+      typeof parsed.bodyHtml === "string" ? parsed.bodyHtml.trim() : "";
 
     if (!subject && !previewText && !bodyHtml) {
       return null;
@@ -189,9 +188,11 @@ function safeParse(content: string): GenerateEmailContentResult | null {
   }
 }
 
-async function getAudienceStats(
-  eventId: string,
-): Promise<{ totalRecipients: number; topIndustries: string[]; topJobTitles: string[] }> {
+async function getAudienceStats(eventId: string): Promise<{
+  totalRecipients: number;
+  topIndustries: string[];
+  topJobTitles: string[];
+}> {
   try {
     const registrations = await Registration.find({
       eventId,

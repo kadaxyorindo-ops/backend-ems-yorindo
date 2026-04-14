@@ -325,10 +325,6 @@ export function renderCommunicationEmail(
   const placeholderVars: Record<string, string> = {
     recipientName: input.recipientName,
     recipientEmail: input.recipientEmail,
-    eventTitle: eventTitle ?? "",
-    eventDate: eventDateLabel ?? "",
-    eventLocation: eventLocation ?? "",
-    eventIndustry: eventIndustry ?? "",
   };
 
   const normalizedSubject = replacePlaceholders(

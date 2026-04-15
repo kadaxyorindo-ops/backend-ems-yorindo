@@ -17,7 +17,6 @@ const router = Router();
  */
 router.post(
   '/', 
-  requireAuth, 
   validate(feedbackSubmissionSchema), 
   handleSubmitFeedback
 );

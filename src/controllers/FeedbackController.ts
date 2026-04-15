@@ -1,31 +1,30 @@
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import FeedbackResponse from '../models/FeedbackResponse';
-import OpenAI from "openai";
-import type { NextFunction } from "express";
+import { analyzeFeedbackSentiment } from '../services/feedback.service';
 import { sendError, sendSuccess } from "../utils/apiResponse.ts";
 import type { AnalyticsEventParams } from "../validators/analytic.validators.ts";
 import { getEventFeedbackAnalytics } from "../services/feedback-analytic.service.ts";
 
 /**
  * Controller: Handles post-event feedback submission
- * Orchestrates validation, AI analysis, and database persistence
+ * Method: POST /api/v1/feedback
  */
 export async function handleSubmitFeedback(req: Request, res: Response): Promise<void> {
   try {
-    // 1. Extract and sanitize payload
+    // 1. Extract payload (mendukung direct atau wrapped body)
     const payload = req.body.body || req.body;
     const { visitorId, eventId, ratings, willJoinFuture, comment } = payload;
 
-    // 2. Validate mandatory fields
+    // 2. Manual check (sebagai backup dari Zod validator)
     if (!visitorId || !eventId || !ratings || !comment) {
       res.status(400).json({ 
         success: false, 
-        message: "Validation Error: Missing required fields." 
+        message: "Validation Error: Missing required fields (visitorId, eventId, ratings, comment)." 
       });
       return;
     }
 
-    // 3. Invoke the AI Service for analysis
+    // 3. Invoke AI Service
     console.log(`[AI] Processing sentiment for visitor: ${visitorId}`);
     const aiInsight = await analyzeFeedbackSentiment(comment);
 
@@ -54,7 +53,6 @@ export async function handleSubmitFeedback(req: Request, res: Response): Promise
 
   } catch (error: any) {
     console.error("Critical Feedback Controller Error:", error);
-    
     res.status(500).json({
       success: false,
       message: "Internal Server Error: Could not process feedback.",
@@ -63,12 +61,17 @@ export async function handleSubmitFeedback(req: Request, res: Response): Promise
   }
 }
 
+/**
+ * Controller: Get Analytics for a specific event
+ * Method: GET /api/v1/feedback/events/:eventId/analytics
+ */
 export async function handleGetEventFeedbackAnalytics(
   _req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
   try {
+    // Mengambil eventId dari hasil validasi middleware params
     const { eventId } = res.locals.parsed.params as AnalyticsEventParams;
     const result = await getEventFeedbackAnalytics(eventId);
 
